@@ -19,6 +19,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def get_github_provider_name() -> str:
+    """
+    Get GitHub OAuth provider name from environment variable.
+
+    Returns:
+        str: GitHub provider name (default: "github-provider-prod")
+    """
+    return os.getenv("GITHUB_OAUTH_PROVIDER_NAME", "github-provider-prod")
+
+
 async def check_gh_auth_status() -> dict:
     """
     Check GitHub CLI authentication status.
@@ -170,7 +180,7 @@ async def get_github_oauth_token(request: Request):
     API Call:
         Uses client.get_resource_oauth2_token() with:
         - workloadIdentityToken: From request header
-        - resourceCredentialProviderName: "github-provider"
+        - resourceCredentialProviderName: From GITHUB_OAUTH_PROVIDER_NAME env var (default: "github-provider-prod")
         - scopes: ["repo", "read:user", "read:org"]
         - oauth2Flow: "USER_FEDERATION"
         - sessionUri: user_id from JWT
@@ -237,9 +247,10 @@ async def get_github_oauth_token(request: Request):
         client = get_bedrock_agentcore_client()
 
         # First attempt with forceAuthentication=False
+        github_provider_name = get_github_provider_name()
         response = client.get_resource_oauth2_token(
             workloadIdentityToken=workload_token,
-            resourceCredentialProviderName="github-provider",
+            resourceCredentialProviderName=github_provider_name,
             scopes=["repo", "read:user", "read:org"],
             oauth2Flow="USER_FEDERATION",
             resourceOauth2ReturnUrl=oauth_callback_url,
@@ -283,7 +294,7 @@ async def get_github_oauth_token(request: Request):
 
                 retry_response = client.get_resource_oauth2_token(
                     workloadIdentityToken=workload_token,
-                    resourceCredentialProviderName="github-provider",
+                    resourceCredentialProviderName=github_provider_name,
                     scopes=["repo", "read:user", "read:org"],
                     oauth2Flow="USER_FEDERATION",
                     resourceOauth2ReturnUrl=oauth_callback_url,
