@@ -284,6 +284,16 @@ cat > /tmp/role-policy.json <<EOF
             ]
         },
         {
+            "Sid": "OAuth2TokenAccess",
+            "Effect": "Allow",
+            "Action": [
+                "bedrock-agentcore:GetResourceOauth2Token"
+            ],
+            "Resource": [
+                "arn:aws:bedrock-agentcore:${AWS_REGION}:${AWS_ACCOUNT_ID}:token-vault/default/oauth2credentialprovider/*"
+            ]
+        },
+        {
             "Sid": "BedrockModelInvocation",
             "Effect": "Allow",
             "Action": [
