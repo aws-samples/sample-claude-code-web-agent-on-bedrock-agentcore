@@ -499,7 +499,7 @@ GITHUB_PROVIDER_NAME="github-provider-${DEPLOYMENT_ENV:-prod}"
 # Check if GitHub provider already exists
 EXISTING_GITHUB_PROVIDER=$(aws bedrock-agentcore-control list-oauth2-credential-providers \
     --region "${AWS_REGION}" \
-    --query "oauth2CredentialProviderSummaries[?name=='${GITHUB_PROVIDER_NAME}'].oauth2CredentialProviderId" \
+    --query "credentialProviders[?name=='${GITHUB_PROVIDER_NAME}'].name" \
     --output text 2>/dev/null || echo "")
 
 if [ -n "$EXISTING_GITHUB_PROVIDER" ]; then
@@ -508,7 +508,8 @@ if [ -n "$EXISTING_GITHUB_PROVIDER" ]; then
     # Update existing provider
     echo -e "${YELLOW}Updating GitHub OAuth provider...${NC}"
     aws bedrock-agentcore-control update-oauth2-credential-provider \
-        --oauth2-credential-provider-id "${EXISTING_GITHUB_PROVIDER}" \
+        --name "${GITHUB_PROVIDER_NAME}" \
+        --credential-provider-vendor "GithubOauth2" \
         --region "${AWS_REGION}" \
         --oauth2-provider-config-input "githubOauth2ProviderConfig={clientId=${GITHUB_OAUTH_CLIENT_ID},clientSecret=${GITHUB_OAUTH_CLIENT_SECRET}}" \
         --output json > /dev/null 2>&1 || echo -e "${YELLOW}Warning: Could not update GitHub provider${NC}"
@@ -523,8 +524,12 @@ else
         --output json 2>&1)
 
     if [ $? -eq 0 ]; then
-        GITHUB_PROVIDER_ID=$(echo "$GITHUB_PROVIDER_OUTPUT" | jq -r '.oauth2CredentialProviderId')
-        echo -e "${GREEN}✓${NC} GitHub OAuth provider created: ${GITHUB_PROVIDER_ID}"
+        GITHUB_PROVIDER_ARN=$(echo "$GITHUB_PROVIDER_OUTPUT" | jq -r '.credentialProviderArn // .name // empty')
+        if [ -n "$GITHUB_PROVIDER_ARN" ]; then
+            echo -e "${GREEN}✓${NC} GitHub OAuth provider created: ${GITHUB_PROVIDER_ARN}"
+        else
+            echo -e "${GREEN}✓${NC} GitHub OAuth provider created: ${GITHUB_PROVIDER_NAME}"
+        fi
     else
         echo -e "${YELLOW}Warning: Could not create GitHub provider${NC}"
         echo "$GITHUB_PROVIDER_OUTPUT" | grep -i error || true
