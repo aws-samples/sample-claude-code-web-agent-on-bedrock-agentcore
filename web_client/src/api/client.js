@@ -530,16 +530,45 @@ class DirectAPIClient {
   }
 
   async stopAgentCoreSession(qualifier = 'DEFAULT') {
-    const authHeaders = await getAuthHeaders(true) // Include session ID
-    const url = qualifier ? `${this.baseUrl}/agentcore/session/stop?qualifier=${encodeURIComponent(qualifier)}` : `${this.baseUrl}/agentcore/session/stop`
+    const authHeaders = await getAuthHeaders(true) // Include session ID and bearer token
+    const sessionId = authHeaders['X-Amzn-Bedrock-AgentCore-Runtime-Session-Id']
+
+    if (!sessionId) {
+      console.warn('No active AgentCore session found')
+      return { status: 'no_session', message: 'No active AgentCore session found' }
+    }
+
+    // Construct stopruntimesession endpoint URL directly from baseUrl
+    const url = `${this.baseUrl}/stopruntimesession?qualifier=${encodeURIComponent(qualifier)}`
+
+    console.log(`Stopping AgentCore session ${sessionId} at ${url}`)
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: authHeaders
+      headers: {
+        'Authorization': authHeaders['Authorization'],
+        'Content-Type': 'application/json',
+        'X-Amzn-Bedrock-AgentCore-Runtime-Session-Id': sessionId
+      }
     })
-    if (!response.ok) {
-      throw new Error('Failed to stop AgentCore session')
+
+    // Handle 404 as success (session already terminated or not found)
+    if (response.status === 404) {
+      console.log('Session not found or already terminated')
+      return { status: 'not_found', message: 'Session not found or already terminated' }
     }
-    return response.json()
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to stop AgentCore session: ${response.status} ${errorText}`)
+    }
+
+    // Try to parse JSON response, fallback to success message
+    try {
+      return await response.json()
+    } catch {
+      return { status: 'success', message: 'Session stopped' }
+    }
   }
 
   async listGithubRepositories() {
@@ -701,7 +730,45 @@ class InvocationsAPIClient {
   }
 
   async stopAgentCoreSession(qualifier = 'DEFAULT') {
-    return this._invoke('/agentcore/session/stop', 'POST', null, null, { qualifier })
+    const authHeaders = await getAuthHeaders(true) // Include session ID and bearer token
+    const sessionId = authHeaders['X-Amzn-Bedrock-AgentCore-Runtime-Session-Id']
+
+    if (!sessionId) {
+      console.warn('No active AgentCore session found')
+      return { status: 'no_session', message: 'No active AgentCore session found' }
+    }
+
+    // Construct stopruntimesession endpoint URL directly from baseUrl
+    const url = `${this.baseUrl}/stopruntimesession?qualifier=${encodeURIComponent(qualifier)}`
+
+    console.log(`Stopping AgentCore session ${sessionId} at ${url}`)
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeaders['Authorization'],
+        'Content-Type': 'application/json',
+        'X-Amzn-Bedrock-AgentCore-Runtime-Session-Id': sessionId
+      }
+    })
+
+    // Handle 404 as success (session already terminated or not found)
+    if (response.status === 404) {
+      console.log('Session not found or already terminated')
+      return { status: 'not_found', message: 'Session not found or already terminated' }
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to stop AgentCore session: ${response.status} ${errorText}`)
+    }
+
+    // Try to parse JSON response, fallback to success message
+    try {
+      return await response.json()
+    } catch {
+      return { status: 'success', message: 'Session stopped' }
+    }
   }
 
   async healthCheck() {
