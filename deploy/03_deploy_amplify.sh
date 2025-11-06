@@ -372,3 +372,56 @@ if [ "$IS_NEW_APP" = true ]; then
     echo "5. Branch: $AMPLIFY_BRANCH_NAME"
     echo ""
 fi
+
+# Update OAuth callback URL with Amplify app URL
+echo ""
+echo -e "${YELLOW}Updating OAuth callback URL configuration...${NC}"
+
+NEW_OAUTH_CALLBACK_URL="${APP_URL}/oauth/callback"
+echo "  New OAuth callback URL: ${NEW_OAUTH_CALLBACK_URL}"
+
+# Update config.env file
+if [ -f "${SCRIPT_DIR}/config.env" ]; then
+    if grep -q "^OAUTH_CALLBACK_URL=" "${SCRIPT_DIR}/config.env"; then
+        sed -i.bak "s|^OAUTH_CALLBACK_URL=.*|OAUTH_CALLBACK_URL=${NEW_OAUTH_CALLBACK_URL}|" "${SCRIPT_DIR}/config.env"
+        echo -e "${GREEN}✓${NC} Updated OAUTH_CALLBACK_URL in config.env"
+    else
+        echo "OAUTH_CALLBACK_URL=${NEW_OAUTH_CALLBACK_URL}" >> "${SCRIPT_DIR}/config.env"
+        echo -e "${GREEN}✓${NC} Added OAUTH_CALLBACK_URL to config.env"
+    fi
+    rm -f "${SCRIPT_DIR}/config.env.bak"
+fi
+
+# Update workload identity OAuth callback URLs
+if [ -n "$WORKLOAD_IDENTITY_ARN" ]; then
+    echo -e "${YELLOW}Updating workload identity OAuth callback URLs...${NC}"
+    WORKLOAD_IDENTITY_NAME=$(echo "$WORKLOAD_IDENTITY_ARN" | awk -F'/' '{print $NF}')
+
+    UPDATE_RESULT=$(aws bedrock-agentcore-control update-workload-identity \
+        --name "${WORKLOAD_IDENTITY_NAME}" \
+        --region "${AWS_REGION}" \
+        --allowed-resource-oauth2-return-urls "${NEW_OAUTH_CALLBACK_URL}" \
+        2>&1)
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓${NC} Updated workload identity OAuth callback URLs"
+    else
+        echo -e "${YELLOW}Warning: Could not update workload identity OAuth URLs${NC}"
+        echo "$UPDATE_RESULT"
+    fi
+else
+    echo -e "${YELLOW}Warning: WORKLOAD_IDENTITY_ARN not found, skipping workload identity update${NC}"
+    echo "  You may need to run: ./02_deploy_agentcore.sh"
+fi
+
+echo ""
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${GREEN}Deployment Complete!${NC}"
+echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo "Important: Update your GitHub OAuth App settings:"
+echo "1. Go to: https://github.com/settings/developers"
+echo "2. Select your OAuth App"
+echo "3. Update Authorization callback URL to:"
+echo -e "   ${GREEN}${NEW_OAUTH_CALLBACK_URL}${NC}"
+echo ""
