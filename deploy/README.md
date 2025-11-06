@@ -241,7 +241,7 @@ CLAUDE_CODE_USE_BEDROCK=1
 ```bash
 AMPLIFY_APP_NAME=claude-agent-web-client
 AMPLIFY_BRANCH_NAME=main
-GITHUB_REPO=https://github.com/yytdfc/claude-agent-api-server.git
+GITHUB_REPO=https://github.com/aws-samples/sample-claude-code-web-agent-on-bedrock-agentcore.git
 ```
 
 ## Resource Naming
