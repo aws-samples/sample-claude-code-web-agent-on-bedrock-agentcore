@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package terminal;
+
+// Terminal service with bidirectional streaming
+service Terminal {
+  // Bidirectional stream for terminal I/O
+  rpc Stream(stream TerminalRequest) returns (stream TerminalResponse);
+
+  // Create a new terminal session
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+
+  // Close a terminal session
+  rpc CloseSession(CloseSessionRequest) returns (CloseSessionResponse);
+
+  // Resize terminal
+  rpc ResizeTerminal(ResizeRequest) returns (ResizeResponse);
+}
+
+// Request messages for bidirectional stream
+message TerminalRequest {
+  string session_id = 1;
+
+  oneof request {
+    InputData input = 2;
+    ResizeData resize = 3;
+  }
+}
+
+message InputData {
+  string data = 1;
+}
+
+message ResizeData {
+  int32 rows = 1;
+  int32 cols = 2;
+}
+
+// Response messages for bidirectional stream
+message TerminalResponse {
+  string session_id = 1;
+
+  oneof response {
+    OutputData output = 2;
+    ErrorData error = 3;
+    ExitData exit = 4;
+  }
+}
+
+message OutputData {
+  string data = 1;
+  int32 seq = 2;
+}
+
+message ErrorData {
+  string message = 1;
+}
+
+message ExitData {
+  int32 exit_code = 1;
+}
+
+// Create session messages
+message CreateSessionRequest {
+  int32 rows = 1;
+  int32 cols = 2;
+  string cwd = 3;
+  string shell = 4;
+}
+
+message CreateSessionResponse {
+  string session_id = 1;
+  string status = 2;
+}
+
+// Close session messages
+message CloseSessionRequest {
+  string session_id = 1;
+}
+
+message CloseSessionResponse {
+  bool success = 1;
+}
+
+// Resize messages
+message ResizeRequest {
+  string session_id = 1;
+  int32 rows = 2;
+  int32 cols = 3;
+}
+
+message ResizeResponse {
+  bool success = 1;
+}

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Invocations API</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #ccc;
+        }
+        .test.success {
+            border-left-color: #4caf50;
+        }
+        .test.error {
+            border-left-color: #f44336;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            overflow-x: auto;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Invocations API Test</h1>
+    <button onclick="runTests()">Run All Tests</button>
+    <button onclick="clearResults()">Clear Results</button>
+    <div id="results"></div>
+
+    <script>
+        const BASE_URL = 'http://127.0.0.1:8000';
+
+        async function testInvocation(name, request, expectedStatus = 200) {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'test';
+
+            try {
+                const response = await fetch(`${BASE_URL}/invocations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(request)
+                });
+
+                const data = await response.json();
+
+                const success = response.status === expectedStatus;
+                resultDiv.className += success ? ' success' : ' error';
+
+                resultDiv.innerHTML = `
+                    <h3>${success ? '✓' : '✗'} ${name}</h3>
+                    <p><strong>Request:</strong></p>
+                    <pre>${JSON.stringify(request, null, 2)}</pre>
+                    <p><strong>Status:</strong> ${response.status} (expected: ${expectedStatus})</p>
+                    <p><strong>Response:</strong></p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                resultDiv.className += ' error';
+                resultDiv.innerHTML = `
+                    <h3>✗ ${name}</h3>
+                    <p><strong>Request:</strong></p>
+                    <pre>${JSON.stringify(request, null, 2)}</pre>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                `;
+            }
+
+            document.getElementById('results').appendChild(resultDiv);
+        }
+
+        async function runTests() {
+            clearResults();
+
+            // Test 1: Health check
+            await testInvocation('Health Check', {
+                path: '/health',
+                method: 'GET'
+            });
+
+            // Test 2: Create session
+            await testInvocation('Create Session', {
+                path: '/sessions',
+                method: 'POST',
+                payload: {
+                    model: 'claude-3-5-sonnet-20241022',
+                    cwd: '/workspace'
+                }
+            });
+
+            // Test 3: Get status for non-existent session (404)
+            await testInvocation('Get Session Status (404)', {
+                path: '/sessions/{session_id}/status',
+                method: 'GET',
+                path_params: { session_id: 'non-existent-id' }
+            }, 404);
+
+            // Test 4: Get history for non-existent session (404)
+            await testInvocation('Get Session History (404)', {
+                path: '/sessions/{session_id}/history',
+                method: 'GET',
+                path_params: { session_id: 'non-existent-id' }
+            }, 404);
+
+            // Test 5: List sessions
+            await testInvocation('List Sessions', {
+                path: '/sessions',
+                method: 'GET'
+            });
+
+            // Test 6: Unknown path (404)
+            await testInvocation('Unknown Path', {
+                path: '/unknown',
+                method: 'GET'
+            }, 404);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
