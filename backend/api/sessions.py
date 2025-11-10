@@ -51,18 +51,11 @@ async def create_session(request: CreateSessionRequest):
         cwd=request.cwd,
     )
 
-    # For new sessions (not resuming), return placeholder
-    # Real session_id will be provided in first message response
-    if request.resume_session_id:
-        # Resuming existing session - return actual session_id
-        session_id = internal_session_id
-    else:
-        # New session - return placeholder
-        # Client will get real session_id from first message response
-        session_id = "new_session"
-
+    # Return internal session ID (UUID for new sessions, actual ID for resumed)
+    # Client can immediately use this for API calls
+    # When SDK provides real session_id, both backend and frontend will update
     return CreateSessionResponse(
-        session_id=session_id,
+        session_id=internal_session_id,
         created_at=datetime.now(timezone.utc).isoformat(),
         status="connected",
     )
