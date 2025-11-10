@@ -288,7 +288,7 @@ async def create_project(request: CreateProjectRequest):
     Create a new project for a user.
 
     Creates a new project directory locally and syncs to S3.
-    Project path: {base_path}/{user_id}/{project_name}/
+    Local path: {base_path}/{project_name}/
     S3 path: s3://{bucket}/{prefix}/{user_id}/projects/{project_name}/
 
     Environment Variables:
@@ -317,8 +317,8 @@ async def create_project(request: CreateProjectRequest):
         from pathlib import Path
         from ..core.workspace_sync import backup_project_to_s3
 
-        # Create local project directory
-        local_project_path = Path(LOCAL_BASE_PATH) / request.user_id / request.project_name
+        # Create local project directory (without user_id in path)
+        local_project_path = Path(LOCAL_BASE_PATH) / request.project_name
 
         if local_project_path.exists():
             raise HTTPException(
