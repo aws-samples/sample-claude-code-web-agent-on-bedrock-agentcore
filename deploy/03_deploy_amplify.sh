@@ -213,6 +213,14 @@ if [ -f "${SCRIPT_DIR}/.agentcore_output" ]; then
     fi
     echo "  ✓ Set VITE_HIDE_SETTINGS_BUTTON=true"
 
+    # Enable workspace mode by default
+    if grep -q "^VITE_WORKSPACE_MODE=" .env; then
+        sed -i.bak "s|^VITE_WORKSPACE_MODE=.*|VITE_WORKSPACE_MODE=true|" .env
+    else
+        echo "VITE_WORKSPACE_MODE=true" >> .env
+    fi
+    echo "  ✓ Set VITE_WORKSPACE_MODE=true"
+
     # Clean up backup files
     rm -f .env.bak
 fi
