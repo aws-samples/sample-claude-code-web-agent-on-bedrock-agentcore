@@ -150,7 +150,7 @@ class AgentSession:
             }
 
         options_dict = {
-            "allowed_tools": ["Read", "Glob", "Grep"],
+            "allowed_tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
             "system_prompt": system_prompt_config,
             "max_turns": 0,
             "can_use_tool": self.permission_callback,
@@ -273,7 +273,7 @@ class AgentSession:
             Permission result (allow or deny)
         """
         # Auto-allow read-only operations
-        if tool_name in ["Read", "Glob", "Grep"]:
+        if tool_name in ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]:
             return PermissionResultAllow()
 
         # Create permission request
