@@ -502,7 +502,7 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
         const { response: historyResponse, data: historyData } = await apiClientRef.current.getSessionHistory(existingSessionId)
         if (historyResponse.ok && historyData) {
 
-          // Convert history messages to UI format and filter out warmup messages
+          // Convert history messages to UI format
           const historyMessages = historyData.messages.map(msg => {
             // Check if it's a tool message
             if (msg.type === 'tool_use') {
@@ -528,11 +528,8 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
             }
           })
 
-          // Filter out the first 2 messages (warmup conversation)
-          // These are typically the initial greeting exchange
-          const filteredMessages = historyMessages.slice(2)
-
-          setMessages(filteredMessages)
+          // No filtering - show all history messages
+          setMessages(historyMessages)
 
           // Update session info with session ID only
           setSessionInfo(`Session ID: ${existingSessionId}`)
