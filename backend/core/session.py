@@ -172,25 +172,28 @@ class AgentSession:
                 if session_file.exists():
                     options_dict["resume"] = str(session_file)
                 else:
-                    # Fall back to searching all project directories
-                    session_dir = Path.home() / ".claude" / "projects"
-                    for project_dir in session_dir.iterdir():
-                        if not project_dir.is_dir():
-                            continue
-                        potential_file = project_dir / f"{resume_session_id}.jsonl"
-                        if potential_file.exists():
-                            options_dict["resume"] = str(potential_file)
-                            break
+                    # Session file not found in specified cwd
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Session {resume_session_id} not found in cwd {self.cwd}"
+                    )
             else:
                 # No cwd provided, search all project directories
                 session_dir = Path.home() / ".claude" / "projects"
+                found = False
                 for project_dir in session_dir.iterdir():
                     if not project_dir.is_dir():
                         continue
                     potential_file = project_dir / f"{resume_session_id}.jsonl"
                     if potential_file.exists():
                         options_dict["resume"] = str(potential_file)
+                        found = True
                         break
+                if not found:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Session {resume_session_id} not found"
+                    )
 
         if self.model:
             options_dict["model"] = self.model

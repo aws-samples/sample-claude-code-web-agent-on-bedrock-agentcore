@@ -151,7 +151,9 @@ class SessionManager:
         List all available sessions from disk, optionally filtered by cwd.
 
         Args:
-            cwd: Optional working directory to filter by
+            cwd: Optional working directory to filter by.
+                If provided, only sessions from that specific cwd will be returned.
+                If not provided, sessions from all project directories will be returned.
 
         Returns:
             List of session information dictionaries

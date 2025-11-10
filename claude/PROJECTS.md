@@ -26,6 +26,24 @@ Used when no specific project is selected. Files are stored in `/workspace/{user
 ```
 Used when working in a specific project. Files are stored in `/workspace/{user_id}/{project_name}/`.
 
+## Session Isolation
+
+**IMPORTANT**: Sessions are strictly isolated by their working directory (`cwd`). This means:
+
+1. **Session List**: When listing sessions with a specific `cwd`, ONLY sessions from that directory are returned
+2. **Session Resume**: When resuming a session with a specific `cwd`, the session file MUST exist in that directory
+3. **No Cross-Directory Access**: Sessions cannot access or resume sessions from other directories
+
+This ensures proper isolation between:
+- Different projects (e.g., `/workspace/user123/project-a` vs `/workspace/user123/project-b`)
+- Users' workspaces (e.g., `/workspace/user123/` vs `/workspace/user456/`)
+
+**Implementation Details**:
+- Session files are stored in `~/.claude/projects/{path-key}/{session-id}.jsonl`
+- `path-key` is derived from `cwd` by replacing `/` and `_` with `-`
+- Example: `cwd=/workspace/user123/my-project` → `path-key=workspace-user123-my-project`
+- Attempting to resume a session that doesn't exist in the specified `cwd` will return a 404 error
+
 ## Directory Structure
 
 ### Local Filesystem
