@@ -183,10 +183,10 @@ function SessionList({ serverUrl, currentSessionId, onSessionSelect, onNewSessio
                 onClick={() => onSessionSelect(session.session_id)}
               >
                 <div className="session-item-header">
-                  <div className="session-id-wrapper">
+                  <div className="session-preview-wrapper">
                     {isActive && <Circle size={8} className="active-indicator" fill="currentColor" title="Active session" />}
-                    <span className="session-id" title={session.session_id}>
-                      {session.session_id.slice(0, 8)}...
+                    <span className="session-preview-title" title={session.preview}>
+                      {session.preview}
                     </span>
                   </div>
                   <span className="session-project" title={session.project}>
@@ -194,8 +194,8 @@ function SessionList({ serverUrl, currentSessionId, onSessionSelect, onNewSessio
                   </span>
                 </div>
                 <div className="session-item-info">
-                  <span className="session-preview" title={session.preview}>
-                    {session.preview}
+                  <span className="session-id-small" title={session.session_id}>
+                    {session.session_id.slice(0, 8)}...
                   </span>
                   <span className="session-time" title={session.modified}>
                     {formatRelativeTime(session.modified)}

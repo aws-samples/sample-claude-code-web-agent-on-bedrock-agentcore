@@ -199,18 +199,8 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
       setSessionId(data.session_id)
       setConnected(true)
 
-      // Update session info with model and proxy details (without working directory)
-      let info = ''
-      if (config.model) info += `🤖 ${formatModel(config.model)}`
-      if (config.backgroundModel) {
-        if (info) info += ' | '
-        info += `⚡ ${formatModel(config.backgroundModel)}`
-      }
-      if (config.enableProxy) {
-        if (info) info += ' | '
-        info += '🔌 Proxy'
-      }
-      setSessionInfo(info)
+      // Update session info with session ID only
+      setSessionInfo(`Session ID: ${data.session_id}`)
 
       addSystemMessage('✅ Connected to Claude Agent')
     } catch (error) {
@@ -544,21 +534,8 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
 
           setMessages(filteredMessages)
 
-          // Update session info with metadata (without working directory)
-          const metadata = historyData.metadata
-          let info = ''
-          if (config.model) {
-            info += `🤖 ${formatModel(config.model)}`
-          }
-          if (config.backgroundModel) {
-            if (info) info += ' | '
-            info += `⚡ ${formatModel(config.backgroundModel)}`
-          }
-          if (metadata.git_branch) {
-            if (info) info += ' | '
-            info += `🌿 ${metadata.git_branch}`
-          }
-          setSessionInfo(info)
+          // Update session info with session ID only
+          setSessionInfo(`Session ID: ${existingSessionId}`)
 
           addSystemMessage(`✅ Loaded session with ${historyData.message_count} messages`)
         } else {
@@ -566,14 +543,8 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
           setMessages([])
           addSystemMessage(`✅ Switched to session ${existingSessionId.slice(0, 8)}...`)
 
-          // Build session info from config (without working directory)
-          let info = ''
-          if (config.model) info += `🤖 ${formatModel(config.model)}`
-          if (config.backgroundModel) {
-            if (info) info += ' | '
-            info += `⚡ ${formatModel(config.backgroundModel)}`
-          }
-          setSessionInfo(info)
+          // Update session info with session ID only
+          setSessionInfo(`Session ID: ${existingSessionId}`)
         }
       } catch (historyError) {
         // History loading failed, start fresh
@@ -581,14 +552,8 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
         setMessages([])
         addSystemMessage(`✅ Switched to session ${existingSessionId.slice(0, 8)}... (history unavailable)`)
 
-        // Build session info from config (without working directory)
-        let info = ''
-        if (config.model) info += `🤖 ${formatModel(config.model)}`
-        if (config.backgroundModel) {
-          if (info) info += ' | '
-          info += `⚡ ${formatModel(config.backgroundModel)}`
-        }
-        setSessionInfo(info)
+        // Update session info with session ID only
+        setSessionInfo(`Session ID: ${existingSessionId}`)
       }
     } catch (error) {
       addErrorMessage(`Failed to load session: ${error.message}`)
