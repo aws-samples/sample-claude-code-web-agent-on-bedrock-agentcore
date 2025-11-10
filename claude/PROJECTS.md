@@ -31,6 +31,8 @@ Used when working in a specific project. Files are stored in `/workspace/{user_i
 **IMPORTANT**: Sessions are strictly isolated by their working directory (`cwd`). This means:
 
 1. **Session List**: When listing sessions with a specific `cwd`, ONLY sessions from that directory are returned
+   - Includes both **active in-memory sessions** (newly created, not yet persisted by SDK)
+   - And **persisted sessions** (stored on disk in `.jsonl` files)
 2. **Session Resume**: When resuming a session with a specific `cwd`, the session file MUST exist in that directory
 3. **No Cross-Directory Access**: Sessions cannot access or resume sessions from other directories
 
@@ -43,6 +45,12 @@ This ensures proper isolation between:
 - `path-key` is derived from `cwd` by replacing `/` and `_` with `-`
 - Example: `cwd=/workspace/user123/my-project` → `path-key=workspace-user123-my-project`
 - Attempting to resume a session that doesn't exist in the specified `cwd` will return a 404 error
+
+**Session Visibility**:
+- Newly created sessions appear immediately in the session list (from in-memory state)
+- Once SDK persists the session, it continues to appear in the list (from disk)
+- Active sessions are marked with `"active": true` in the response
+- Persisted-only sessions are marked with `"active": false`
 
 ## Directory Structure
 

@@ -148,7 +148,8 @@ class SessionManager:
         self, cwd: Optional[str] = None
     ) -> list[dict[str, Any]]:
         """
-        List all available sessions from disk, optionally filtered by cwd.
+        List all available sessions (both active in-memory and persisted on disk),
+        optionally filtered by cwd.
 
         Args:
             cwd: Optional working directory to filter by.
@@ -159,8 +160,42 @@ class SessionManager:
             List of session information dictionaries
         """
         sessions = []
+        session_ids_seen = set()
 
+        # First, add active in-memory sessions
+        # This ensures newly created sessions appear immediately before SDK persists them
+        for session_id, session in self.sessions.items():
+            # Filter by cwd if provided
+            if cwd and session.cwd != cwd:
+                continue
+
+            # Skip SDK internal sessions
+            if session_id.startswith("agent-"):
+                continue
+
+            # Derive project key from cwd
+            if session.cwd:
+                path_key = session.cwd.replace("/", "-").replace("_", "-")
+            else:
+                path_key = "default"
+
+            sessions.append(
+                {
+                    "session_id": session_id,
+                    "modified": session.last_activity.isoformat(),
+                    "preview": "Active session",
+                    "project": path_key,
+                    "message_count": session.message_count,
+                    "first_message": None,
+                    "active": True,  # Mark as active in-memory session
+                }
+            )
+            session_ids_seen.add(session_id)
+
+        # Then, scan persisted sessions from disk
         if not self.session_dir.exists():
+            # Sort by modification time and return early
+            sessions.sort(key=lambda x: x["modified"], reverse=True)
             return sessions
 
         # If cwd is provided, only scan that specific project directory
@@ -178,6 +213,10 @@ class SessionManager:
             for session_file in project_dir.glob("*.jsonl"):
                 try:
                     session_id = session_file.stem
+
+                    # Skip if already seen (active in-memory session)
+                    if session_id in session_ids_seen:
+                        continue
 
                     # Skip SDK internal sessions (agent-xxxxxxxx format)
                     # These are created by Claude Agent SDK and not user-visible
@@ -241,6 +280,7 @@ class SessionManager:
                             "project": project_dir.name,
                             "message_count": message_count,
                             "first_message": first_user_message[:100] if first_user_message else None,
+                            "active": False,  # Persisted session
                         }
                     )
                 except Exception:
