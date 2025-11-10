@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { GitCommit, GitBranch, RefreshCw, Upload, FileText, Plus, Minus, Edit } from 'lucide-react'
+import { createAPIClient } from '../api/client'
+import { getAgentCoreSessionId } from '../utils/authUtils'
 
-function GitPanel({ serverUrl, cwd, disabled }) {
+function GitPanel({ serverUrl, cwd, disabled, currentProject }) {
   const [commits, setCommits] = useState([])
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -9,75 +11,56 @@ function GitPanel({ serverUrl, cwd, disabled }) {
   const [commitMessage, setCommitMessage] = useState('')
   const [showCommitForm, setShowCommitForm] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState(new Set())
+  const apiClientRef = useRef(null)
+
+  // Initialize API client
+  useEffect(() => {
+    const initApiClient = async () => {
+      if (!serverUrl) return
+      const agentCoreSessionId = await getAgentCoreSessionId(currentProject)
+      apiClientRef.current = createAPIClient(serverUrl, agentCoreSessionId)
+    }
+    initApiClient()
+  }, [serverUrl, currentProject])
 
   const fetchGitLog = useCallback(async () => {
-    if (!cwd || disabled) return
+    if (!cwd || disabled || !apiClientRef.current) return
 
     setLoading(true)
     try {
-      const response = await fetch(`${serverUrl}/git/log`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cwd, limit: 10 })
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setCommits(data.commits || [])
-      }
+      const data = await apiClientRef.current.getGitLog(cwd, 10)
+      setCommits(data.commits || [])
     } catch (error) {
       console.error('Failed to fetch git log:', error)
     } finally {
       setLoading(false)
     }
-  }, [serverUrl, cwd, disabled])
+  }, [cwd, disabled])
 
   const fetchGitStatus = useCallback(async () => {
-    if (!cwd || disabled) return
+    if (!cwd || disabled || !apiClientRef.current) return
 
     try {
-      const response = await fetch(`${serverUrl}/git/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cwd })
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setStatus(data)
-      }
+      const data = await apiClientRef.current.getGitStatus(cwd)
+      setStatus(data)
     } catch (error) {
       console.error('Failed to fetch git status:', error)
     }
-  }, [serverUrl, cwd, disabled])
+  }, [cwd, disabled])
 
   const handleCommit = async () => {
-    if (!commitMessage.trim() || disabled) return
+    if (!commitMessage.trim() || disabled || !apiClientRef.current) return
 
     setLoading(true)
     try {
       const files = selectedFiles.size > 0 ? Array.from(selectedFiles) : null
+      await apiClientRef.current.createGitCommit(cwd, commitMessage, files)
 
-      const response = await fetch(`${serverUrl}/git/commit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cwd,
-          message: commitMessage,
-          files
-        })
-      })
-
-      if (response.ok) {
-        setCommitMessage('')
-        setShowCommitForm(false)
-        setSelectedFiles(new Set())
-        await fetchGitLog()
-        await fetchGitStatus()
-      } else {
-        const error = await response.json()
-        alert(`Commit failed: ${error.detail}`)
-      }
+      setCommitMessage('')
+      setShowCommitForm(false)
+      setSelectedFiles(new Set())
+      await fetchGitLog()
+      await fetchGitStatus()
     } catch (error) {
       console.error('Failed to create commit:', error)
       alert(`Commit failed: ${error.message}`)
@@ -87,28 +70,15 @@ function GitPanel({ serverUrl, cwd, disabled }) {
   }
 
   const handlePush = async () => {
-    if (disabled) return
+    if (disabled || !apiClientRef.current) return
 
     if (!confirm('Push commits to remote?')) return
 
     setLoading(true)
     try {
-      const response = await fetch(`${serverUrl}/git/push`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cwd,
-          remote: 'origin'
-        })
-      })
-
-      if (response.ok) {
-        alert('Successfully pushed commits')
-        await fetchGitLog()
-      } else {
-        const error = await response.json()
-        alert(`Push failed: ${error.detail}`)
-      }
+      await apiClientRef.current.pushGitCommits(cwd, 'origin')
+      alert('Successfully pushed commits')
+      await fetchGitLog()
     } catch (error) {
       console.error('Failed to push:', error)
       alert(`Push failed: ${error.message}`)

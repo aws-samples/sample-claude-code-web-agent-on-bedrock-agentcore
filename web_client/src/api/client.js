@@ -596,6 +596,92 @@ class DirectAPIClient {
     handleFetchResponse(response)
     return response.json()
   }
+
+  // Git operations
+  async getGitLog(cwd, limit = 10) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/git/log`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
+      body: JSON.stringify({ cwd, limit })
+    })
+    handleFetchResponse(response)
+    if (!response.ok) {
+      throw new Error('Failed to get git log')
+    }
+    return response.json()
+  }
+
+  async getGitStatus(cwd) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/git/status`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
+      body: JSON.stringify({ cwd })
+    })
+    handleFetchResponse(response)
+    if (!response.ok) {
+      throw new Error('Failed to get git status')
+    }
+    return response.json()
+  }
+
+  async createGitCommit(cwd, message, files = null) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/git/commit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
+      body: JSON.stringify({ cwd, message, files })
+    })
+    handleFetchResponse(response)
+    if (!response.ok) {
+      throw new Error('Failed to create git commit')
+    }
+    return response.json()
+  }
+
+  async pushGitCommits(cwd, remote = 'origin', branch = null) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/git/push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
+      body: JSON.stringify({ cwd, remote, branch })
+    })
+    handleFetchResponse(response)
+    if (!response.ok) {
+      throw new Error('Failed to push git commits')
+    }
+    return response.json()
+  }
+
+  async getGitDiff(cwd, commitHash) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/git/diff`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
+      body: JSON.stringify({ cwd, commit_hash: commitHash })
+    })
+    handleFetchResponse(response)
+    if (!response.ok) {
+      throw new Error('Failed to get git diff')
+    }
+    return response.json()
+  }
 }
 
 /**
@@ -1138,6 +1224,27 @@ class InvocationsAPIClient {
     if (branch) params.branch = branch
 
     return this._invoke('/github/create-project', 'POST', null, params)
+  }
+
+  // Git operations
+  async getGitLog(cwd, limit = 10) {
+    return this._invoke('/git/log', 'POST', { cwd, limit })
+  }
+
+  async getGitStatus(cwd) {
+    return this._invoke('/git/status', 'POST', { cwd })
+  }
+
+  async createGitCommit(cwd, message, files = null) {
+    return this._invoke('/git/commit', 'POST', { cwd, message, files })
+  }
+
+  async pushGitCommits(cwd, remote = 'origin', branch = null) {
+    return this._invoke('/git/push', 'POST', { cwd, remote, branch })
+  }
+
+  async getGitDiff(cwd, commitHash) {
+    return this._invoke('/git/diff', 'POST', { cwd, commit_hash: commitHash })
   }
 }
 
