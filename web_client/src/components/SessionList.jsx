@@ -4,7 +4,7 @@ import { createAPIClient } from '../api/client'
 import { getAgentCoreSessionId } from '../utils/authUtils'
 import { formatRelativeTime, compareDates } from '../utils/dateUtils'
 
-function SessionList({ serverUrl, currentSessionId, onSessionSelect, onNewSession, cwd, disabled, isActive, currentProject }) {
+function SessionList({ serverUrl, currentSessionId, onSessionSelect, onNewSession, cwd, disabled, isActive, currentProject, refreshTrigger }) {
   const [sessions, setSessions] = useState([])
   const [activeSessions, setActiveSessions] = useState(new Set())
   const [loading, setLoading] = useState(false)
@@ -151,6 +151,16 @@ function SessionList({ serverUrl, currentSessionId, onSessionSelect, onNewSessio
     // Update previous active state
     previousActiveRef.current = isActive
   }, [isActive, disabled])
+
+  // Refresh when refreshTrigger changes (messages changed)
+  useEffect(() => {
+    if (disabled || !refreshTrigger) return
+
+    console.log('🔄 Refresh trigger changed - refreshing session list')
+    if (apiClientRef.current) {
+      fetchSessions()
+    }
+  }, [refreshTrigger, disabled])
 
 
   return (

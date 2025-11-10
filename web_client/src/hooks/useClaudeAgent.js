@@ -12,7 +12,7 @@ const formatModel = (model) => {
     .replace('claude-3-opus-', 'opus-')
 }
 
-export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userId = null, projectName = null, disabled = false) {
+export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userId = null, projectName = null, disabled = false, onMessagesChanged = null) {
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [sessionId, setSessionId] = useState(null)
@@ -30,6 +30,12 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
   const agentCoreSessionIdRef = useRef(null)
   const sessionErrorCountRef = useRef(0) // Track consecutive session errors
   const MAX_SESSION_ERRORS = 10 // Stop after 10 consecutive errors
+  const onMessagesChangedRef = useRef(onMessagesChanged) // Callback for messages change
+
+  // Update callback ref when it changes
+  useEffect(() => {
+    onMessagesChangedRef.current = onMessagesChanged
+  }, [onMessagesChanged])
 
   // Initialize API client when userId or projectName changes
   useEffect(() => {
@@ -366,6 +372,11 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
             case 'done':
               console.log('✅ Stream completed')
               eventSource.close()
+
+              // Notify that messages have changed
+              if (onMessagesChangedRef.current) {
+                onMessagesChangedRef.current()
+              }
               break
 
             case 'error':

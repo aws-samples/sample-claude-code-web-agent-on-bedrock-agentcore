@@ -116,6 +116,15 @@ function AppContent() {
   })
   const [disconnecting, setDisconnecting] = useState(false)
 
+  // Session list refresh trigger
+  const [sessionListRefreshTrigger, setSessionListRefreshTrigger] = useState(0)
+
+  // Callback to refresh session list when messages change
+  const handleMessagesChanged = () => {
+    console.log('📝 Messages changed - triggering session list refresh')
+    setSessionListRefreshTrigger(prev => prev + 1)
+  }
+
   const {
     connected,
     connecting,
@@ -134,7 +143,7 @@ function AppContent() {
     respondToPermission,
     loadSession,
     retrySession
-  } = useClaudeAgent(settings.serverUrl, user?.userId, currentProject, serverDisconnected)
+  } = useClaudeAgent(settings.serverUrl, user?.userId, currentProject, serverDisconnected, handleMessagesChanged)
 
   // Save settings to localStorage whenever they change
   useEffect(() => {
@@ -734,6 +743,7 @@ function AppContent() {
                 disabled={serverDisconnected}
                 isActive={activeTab === 'sessions'}
                 currentProject={currentProject}
+                refreshTrigger={sessionListRefreshTrigger}
               />
             )}
 
