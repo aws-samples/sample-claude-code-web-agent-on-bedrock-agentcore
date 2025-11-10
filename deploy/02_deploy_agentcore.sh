@@ -309,6 +309,20 @@ cat > /tmp/role-policy.json <<EOF
             "Resource" : "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:bedrock-agentcore*"
         },
         {
+            "Sid": "CompleteResourceTokenAuth",
+            "Effect": "Allow",
+            "Action": [
+                "bedrock-agentcore:CompleteResourceTokenAuth"
+            ],
+            "Resource": [
+                "arn:aws:bedrock-agentcore:${AWS_REGION}:${AWS_ACCOUNT_ID}:token-vault/default",
+                "arn:aws:bedrock-agentcore:${AWS_REGION}:${AWS_ACCOUNT_ID}:token-vault/default/oauth2credentialprovider/*",
+                "arn:aws:bedrock-agentcore:${AWS_REGION}:${AWS_ACCOUNT_ID}:workload-identity-directory/*",
+                "arn:aws:bedrock-agentcore:${AWS_REGION}:${AWS_ACCOUNT_ID}:workload-identity-directory/default",
+                "arn:aws:bedrock-agentcore:${AWS_REGION}:${AWS_ACCOUNT_ID}:workload-identity-directory/default/workload-identity/*"
+            ]
+        },
+        {
             "Sid": "BedrockModelInvocation",
             "Effect": "Allow",
             "Action": [
