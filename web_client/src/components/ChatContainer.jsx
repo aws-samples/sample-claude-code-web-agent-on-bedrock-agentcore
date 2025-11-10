@@ -17,6 +17,7 @@ function ChatContainer({
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [selectedModel, setSelectedModel] = useState(currentModel || '')
+  const [isComposing, setIsComposing] = useState(false) // Track IME composition state
   const messagesEndRef = useRef(null)
 
   // Get available models from environment or use defaults
@@ -57,10 +58,21 @@ function ChatContainer({
   }
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Don't send message if user is composing with IME (e.g., Chinese, Japanese input)
+    if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
       e.preventDefault()
       handleSubmit(e)
     }
+  }
+
+  // Handle IME composition start (e.g., when user starts typing Chinese)
+  const handleCompositionStart = () => {
+    setIsComposing(true)
+  }
+
+  // Handle IME composition end (e.g., when user confirms the Chinese input)
+  const handleCompositionEnd = () => {
+    setIsComposing(false)
   }
 
   const handleModelChange = (e) => {
@@ -153,6 +165,8 @@ function ChatContainer({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
             placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
             rows="3"
             disabled={sending}
