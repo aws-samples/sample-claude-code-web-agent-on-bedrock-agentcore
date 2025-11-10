@@ -369,8 +369,8 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
                 setSessionId(data.session_id)
               }
 
-              // Show cost if available
-              if (data.cost_usd !== null) {
+              // Show cost if available and non-zero
+              if (data.cost_usd !== null && data.cost_usd > 0) {
                 addSystemMessage(`💰 Cost: $${data.cost_usd.toFixed(4)}`)
               }
               break
