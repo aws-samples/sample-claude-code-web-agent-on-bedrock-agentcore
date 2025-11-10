@@ -363,16 +363,6 @@ echo ""
 echo "export AMPLIFY_APP_ID=${APP_ID}" > "${SCRIPT_DIR}/.amplify_output"
 echo "export AMPLIFY_APP_URL=${APP_URL}" >> "${SCRIPT_DIR}/.amplify_output"
 
-if [ "$IS_NEW_APP" = true ]; then
-    echo -e "${YELLOW}Optional: Connect GitHub for Continuous Deployment${NC}"
-    echo "1. Open: https://console.aws.amazon.com/amplify/home?region=$AWS_REGION#/$APP_ID"
-    echo "2. Click 'Connect branch'"
-    echo "3. Select GitHub and authorize"
-    echo "4. Repository: $GITHUB_REPO"
-    echo "5. Branch: $AMPLIFY_BRANCH_NAME"
-    echo ""
-fi
-
 # Update OAuth callback URL with Amplify app URL
 echo ""
 echo -e "${YELLOW}Updating OAuth callback URL configuration...${NC}"
@@ -418,10 +408,4 @@ echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}Deployment Complete!${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo ""
-echo "Important: Update your GitHub OAuth App settings:"
-echo "1. Go to: https://github.com/settings/developers"
-echo "2. Select your OAuth App"
-echo "3. Update Authorization callback URL to:"
-echo -e "   ${GREEN}${NEW_OAUTH_CALLBACK_URL}${NC}"
 echo ""
