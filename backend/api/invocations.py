@@ -247,8 +247,11 @@ async def invocations(http_request: Request, request: dict[str, Any]):
     # Route to appropriate endpoint based on path and method
     try:
         if path == "/sessions" and method == "POST":
-            # Create session
-            req = CreateSessionRequest(**payload)
+            # Create session - inject user_id from header if not in payload
+            session_payload = payload.copy() if payload else {}
+            if user_id and "user_id" not in session_payload:
+                session_payload["user_id"] = user_id
+            req = CreateSessionRequest(**session_payload)
             return await create_session(req)
 
         elif path == "/sessions" and method == "GET":

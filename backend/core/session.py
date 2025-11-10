@@ -475,17 +475,26 @@ class AgentSession:
                         }
             elif isinstance(msg, ResultMessage):
                 # Final result with metadata
+                # Extract real session_id from SDK's ResultMessage
+                real_session_id = msg.session_id if hasattr(msg, 'session_id') else self.session_id
+
+                # Update SessionManager if we got a different session_id from SDK
+                if real_session_id != self.session_id:
+                    from ..core.session_manager import SessionManager
+                    from ..server import session_manager
+                    session_manager.update_session_id(self.session_id, real_session_id)
+
                 yield {
                     "type": "result",
                     "cost_usd": msg.total_cost_usd,
                     "num_turns": msg.num_turns,
-                    "session_id": self.session_id
+                    "session_id": real_session_id
                 }
 
-        # Send completion event
+        # Send completion event with real session_id
         yield {
             "type": "done",
-            "session_id": self.session_id
+            "session_id": real_session_id if 'real_session_id' in locals() else self.session_id
         }
 
         from .claude_sync_manager import get_claude_sync_manager

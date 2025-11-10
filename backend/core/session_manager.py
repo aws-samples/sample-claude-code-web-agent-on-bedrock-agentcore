@@ -104,6 +104,30 @@ class SessionManager:
             raise HTTPException(status_code=404, detail="Session not found")
         return self.sessions[session_id]
 
+    def update_session_id(self, old_session_id: str, new_session_id: str):
+        """
+        Update session ID after SDK provides real session_id.
+
+        Args:
+            old_session_id: Old/temporary session ID
+            new_session_id: New/real session ID from SDK
+
+        Raises:
+            HTTPException: If old session not found
+        """
+        if old_session_id not in self.sessions:
+            raise HTTPException(status_code=404, detail=f"Session {old_session_id} not found")
+
+        if new_session_id in self.sessions:
+            # Already exists, nothing to do
+            return
+
+        # Move session from old key to new key
+        session = self.sessions.pop(old_session_id)
+        session.session_id = new_session_id  # Update session object's ID
+        self.sessions[new_session_id] = session
+        print(f"[SessionManager] Updated session ID: {old_session_id} → {new_session_id}")
+
     async def close_session(self, session_id: str):
         """
         Close and cleanup a session.

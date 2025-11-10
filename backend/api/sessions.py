@@ -38,10 +38,10 @@ async def create_session(request: CreateSessionRequest):
         request: Session creation request
 
     Returns:
-        Session information
+        Session information with placeholder session_id for new sessions
     """
     manager = get_session_manager()
-    session_id = await manager.create_session(
+    internal_session_id = await manager.create_session(
         user_id=request.user_id,
         resume_session_id=request.resume_session_id,
         model=request.model,
@@ -50,6 +50,16 @@ async def create_session(request: CreateSessionRequest):
         server_port=8080,  # Using hardcoded port from uvicorn.run
         cwd=request.cwd,
     )
+
+    # For new sessions (not resuming), return placeholder
+    # Real session_id will be provided in first message response
+    if request.resume_session_id:
+        # Resuming existing session - return actual session_id
+        session_id = internal_session_id
+    else:
+        # New session - return placeholder
+        # Client will get real session_id from first message response
+        session_id = "new_session"
 
     return CreateSessionResponse(
         session_id=session_id,

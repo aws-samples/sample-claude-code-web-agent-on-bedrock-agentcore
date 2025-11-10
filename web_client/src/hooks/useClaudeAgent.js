@@ -363,6 +363,12 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
                 }
               })
 
+              // Update session_id if we got real session_id from SDK
+              if (data.session_id && data.session_id !== 'new_session' && sessionId === 'new_session') {
+                console.log(`🔄 Updating session ID from placeholder to real: ${data.session_id}`)
+                setSessionId(data.session_id)
+              }
+
               // Show cost if available
               if (data.cost_usd !== null) {
                 addSystemMessage(`💰 Cost: $${data.cost_usd.toFixed(4)}`)
@@ -371,6 +377,13 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
 
             case 'done':
               console.log('✅ Stream completed')
+
+              // Update session_id if provided in done event
+              if (data.session_id && data.session_id !== 'new_session' && sessionId === 'new_session') {
+                console.log(`🔄 Updating session ID from placeholder to real: ${data.session_id}`)
+                setSessionId(data.session_id)
+              }
+
               eventSource.close()
 
               // Notify that messages have changed
