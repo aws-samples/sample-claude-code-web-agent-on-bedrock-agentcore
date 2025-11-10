@@ -346,6 +346,35 @@ function AppContent() {
     prevConnectedRef.current = connected
   }, [connected, serverDisconnected])
 
+  const handleLogout = async () => {
+    console.log('🚪 Logging out...')
+
+    try {
+      // Always try to stop AgentCore session before logout
+      try {
+        const agentCoreSessionId = await getAgentCoreSessionId(currentProject)
+        const apiClient = createAPIClient(settings.serverUrl, agentCoreSessionId)
+        await apiClient.stopAgentCoreSession('DEFAULT')
+        console.log('✅ Stopped AgentCore session')
+      } catch (error) {
+        console.warn('Failed to stop AgentCore session:', error)
+        // Continue with logout even if this fails
+      }
+
+      // Disconnect from agent session if connected
+      if (connected) {
+        disconnect()
+      }
+
+      // Logout from Cognito
+      await logout()
+      console.log('✅ Logged out successfully')
+    } catch (error) {
+      console.error('Failed to logout:', error)
+      alert(`Failed to logout: ${error.message}`)
+    }
+  }
+
   const handleDisconnectServer = async () => {
     if (!serverConnected) {
       console.warn('Server already disconnected')
@@ -636,7 +665,7 @@ function AppContent() {
         connected={connected}
         onSettingsClick={() => setShowSettings(true)}
         user={user}
-        onLogout={logout}
+        onLogout={handleLogout}
         workingDirectory={workingDirectory}
         showTerminal={showTerminal}
         onTerminalToggle={() => setShowTerminal(!showTerminal)}
