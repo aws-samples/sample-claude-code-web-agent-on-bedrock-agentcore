@@ -298,6 +298,17 @@ cat > /tmp/role-policy.json <<EOF
             ]
         },
         {
+            "Sid" : "SecretsManagerAccess",
+            "Effect" : "Allow",
+            "Action" : [
+                "secretsmanager:CreateSecret",
+                "secretsmanager:PutSecretValue",
+                "secretsmanager:GetSecretValue",
+                "secretsmanager:DeleteSecret"
+            ],
+            "Resource" : "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:bedrock-agentcore*"
+        },
+        {
             "Sid": "BedrockModelInvocation",
             "Effect": "Allow",
             "Action": [

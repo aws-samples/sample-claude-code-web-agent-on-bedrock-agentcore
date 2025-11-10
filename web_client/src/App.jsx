@@ -360,19 +360,19 @@ function AppContent() {
     console.log('🛑 Disconnecting from server...')
 
     try {
-      // If there's an active session, try to stop it
-      if (connected) {
-        try {
-          const agentCoreSessionId = await getAgentCoreSessionId(currentProject)
-          const apiClient = createAPIClient(settings.serverUrl, agentCoreSessionId)
-          await apiClient.stopAgentCoreSession('DEFAULT')
-          console.log('✅ Stopped AgentCore session')
-        } catch (error) {
-          console.warn('Failed to stop AgentCore session:', error)
-          // Continue with disconnect even if this fails
-        }
+      // Always try to stop AgentCore session
+      try {
+        const agentCoreSessionId = await getAgentCoreSessionId(currentProject)
+        const apiClient = createAPIClient(settings.serverUrl, agentCoreSessionId)
+        await apiClient.stopAgentCoreSession('DEFAULT')
+        console.log('✅ Stopped AgentCore session')
+      } catch (error) {
+        console.warn('Failed to stop AgentCore session:', error)
+        // Continue with disconnect even if this fails
+      }
 
-        // Disconnect from agent session
+      // Disconnect from agent session if connected
+      if (connected) {
         disconnect()
       }
 
