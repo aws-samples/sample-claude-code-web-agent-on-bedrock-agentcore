@@ -21,8 +21,12 @@ function SessionList({ serverUrl, currentSessionId, onSessionSelect, onNewSessio
       const availableData = await apiClientRef.current.listAvailableSessions(cwd)
 
       // Filter out empty sessions (no messages or only warmup)
+      // BUT keep active sessions even if they have no messages yet
       const filteredSessions = (availableData.sessions || []).filter(session => {
-        // Skip sessions with no messages
+        // Always show active (in-memory) sessions, even if message_count is 0
+        if (session.active === true) return true
+
+        // For persisted sessions, skip if no messages
         if (session.message_count === 0) return false
 
         // Skip sessions with only one message that is "Warmup"
