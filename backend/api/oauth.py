@@ -403,6 +403,15 @@ async def github_oauth_callback(request: Request, session_id: str):
 
         logger.info(f"Successfully completed OAuth flow for user {user_id}, session {session_id}")
 
+        # NOTE: We do NOT initialize gh CLI here because:
+        # 1. Web client callback request does not include workload token
+        # 2. complete_resource_token_auth API does not return access token
+        # 3. To get access token, we need to call get_resource_oauth2_token which requires workload token
+        #
+        # GitHub CLI initialization happens in get_github_oauth_token endpoint instead,
+        # which has the workload token and can retrieve the access token properly.
+        logger.info(f"OAuth callback completed. User should call /oauth/github/token to initialize gh CLI.")
+
         # Return success HTML page
         html_content = """
         <!DOCTYPE html>
