@@ -157,7 +157,17 @@ async def invocations(http_request: Request, request: dict[str, Any]):
         }
     """
     # Parse agentcore_session_id, user_id, and project_name from headers
-    agentcore_session_id, user_id, project_name = parse_session_and_user_from_headers(http_request)
+    agentcore_session_id, user_id, project_name_from_header = parse_session_and_user_from_headers(http_request)
+
+    # Get project_name from payload/query_params first (for workspace mode), fallback to header
+    # This allows clients to explicitly specify project when workspace mode is enabled
+    project_name = None
+    if request.get("payload"):
+        project_name = request.get("payload", {}).get("project_name")
+    if not project_name and request.get("query_params"):
+        project_name = request.get("query_params", {}).get("project_name")
+    if not project_name:
+        project_name = project_name_from_header
 
     # Ensure user's .claude directory is synced from S3 (first time only)
     if user_id:
@@ -178,6 +188,7 @@ async def invocations(http_request: Request, request: dict[str, Any]):
     # Ensure project directory is synced from S3 (first time only)
     if user_id and project_name:
         from ..core.workspace_sync import sync_project_from_s3, backup_project_to_s3
+        from pathlib import Path
         try:
             print(f"📁 Attempting project sync for user {user_id}, project: {project_name}")
             project_result = await sync_project_from_s3(
@@ -213,11 +224,21 @@ async def invocations(http_request: Request, request: dict[str, Any]):
                         f"   📍 S3 Path: {s3_path}"
                     )
                 elif backup_result.get("status") == "skipped":
-                    local_path = backup_result.get("local_path", "")
-                    print(
-                        f"⏭️  No local project data to backup for {project_name}\n"
-                        f"   📂 Local Path: {local_path}"
-                    )
+                    # Both S3 and local have no data - create local project directory
+                    workspace_base = os.environ.get("WORKSPACE_BASE_PATH", "/workspace")
+                    local_project_path = Path(workspace_base) / project_name
+
+                    if not local_project_path.exists():
+                        local_project_path.mkdir(parents=True, exist_ok=True)
+                        print(
+                            f"📂 Created empty project directory for {project_name}\n"
+                            f"   📂 Local Path: {local_project_path}"
+                        )
+                    else:
+                        print(
+                            f"⏭️  No local project data to backup for {project_name}\n"
+                            f"   📂 Local Path: {local_project_path}"
+                        )
 
         except Exception as e:
             print(f"⚠️  Warning: Exception during project sync: {e}")

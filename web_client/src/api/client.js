@@ -1037,16 +1037,22 @@ class InvocationsAPIClient {
     return this._invoke('/sessions/available', 'GET', payload)
   }
 
-  async listFiles(path = '.') {
-    return this._invoke('/files', 'GET', { path })
+  async listFiles(path = '.', projectName = null) {
+    const payload = { path }
+    if (projectName) payload.project_name = projectName
+    return this._invoke('/files', 'GET', payload)
   }
 
-  async getFileInfo(path) {
-    return this._invoke('/files/info', 'GET', { path })
+  async getFileInfo(path, projectName = null) {
+    const payload = { path }
+    if (projectName) payload.project_name = projectName
+    return this._invoke('/files/info', 'GET', payload)
   }
 
-  async saveFile(path, content) {
-    return this._invoke('/files/save', 'POST', { path, content })
+  async saveFile(path, content, projectName = null) {
+    const payload = { path, content }
+    if (projectName) payload.project_name = projectName
+    return this._invoke('/files/save', 'POST', payload)
   }
 
   async executeShellCommand(command, cwd) {

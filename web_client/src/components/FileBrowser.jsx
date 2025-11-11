@@ -76,7 +76,7 @@ function FileBrowser({ serverUrl, currentPath, workingDirectory, onPathChange, o
     setError(null)
 
     try {
-      const data = await apiClientRef.current.listFiles(path)
+      const data = await apiClientRef.current.listFiles(path, currentProject)
       setFiles(data.items || [])
     } catch (err) {
       console.error('Failed to load files:', err)
