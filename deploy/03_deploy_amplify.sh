@@ -4,6 +4,10 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/config.env"
 
+if [ -f "${SCRIPT_DIR}/.build_output" ]; then
+    source "${SCRIPT_DIR}/.build_output"
+fi
+
 if [ -f "${SCRIPT_DIR}/.agentcore_output" ]; then
     source "${SCRIPT_DIR}/.agentcore_output"
 fi
@@ -398,17 +402,90 @@ if [ -n "$WORKLOAD_IDENTITY_ARN" ]; then
     UPDATE_RESULT=$(aws bedrock-agentcore-control update-workload-identity \
         --name "${WORKLOAD_IDENTITY_NAME}" \
         --region "${AWS_REGION}" \
-        --allowed-resource-oauth2-return-urls "${NEW_OAUTH_CALLBACK_URL}" \
+        --allowed-resource-oauth2-return-urls "[\"${NEW_OAUTH_CALLBACK_URL}\"]" \
         2>&1)
 
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✓${NC} Updated workload identity OAuth callback URLs"
-    else
-        echo -e "${YELLOW}Warning: Could not update workload identity OAuth URLs${NC}"
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓${NC} Updated workload identity OAuth callback URLs"
+        else
+            echo -e "${YELLOW}Warning: Could not update workload identity OAuth URLs${NC}"
         echo "$UPDATE_RESULT"
     fi
 else
     echo -e "${YELLOW}Warning: WORKLOAD_IDENTITY_ARN not found, skipping workload identity update${NC}"
+    echo "  You may need to run: ./02_deploy_agentcore.sh"
+fi
+
+# Update AgentCore Runtime environment variables with new OAuth callback URL
+if [ -n "$AGENT_RUNTIME_ARN" ]; then
+    echo ""
+    echo -e "${YELLOW}Updating AgentCore Runtime environment variables...${NC}"
+    # Extract runtime ID from ARN: arn:aws:bedrock-agentcore:region:account:runtime/runtime-id
+    # We need just the runtime-id part after "runtime/"
+    RUNTIME_ID=$(echo "$AGENT_RUNTIME_ARN" | awk -F'/' '{print $NF}')
+
+    # Prepare authorizer configuration (matching 02_deploy_agentcore.sh)
+    if [ -n "$COGNITO_DISCOVERY_URL" ] && [ -n "$COGNITO_CLIENT_ID" ]; then
+        AUTHORIZER_CONFIG="customJWTAuthorizer={discoveryUrl=${COGNITO_DISCOVERY_URL},allowedClients=[${COGNITO_CLIENT_ID}]}"
+    else
+        AUTHORIZER_CONFIG=""
+    fi
+
+    # Use environment variables from .build_output and .agentcore_output (saved by 01 and 02 scripts)
+    # Match 02_deploy_agentcore.sh - don't use get-agent-runtime API
+    ROLE_ARN="${IAM_ROLE_ARN}"
+
+    # Build ENV_VARS with all required environment variables
+    # Match the logic from 02_deploy_agentcore.sh
+    ENV_VARS="AWS_DEFAULT_REGION=${AWS_REGION}"
+    [ -n "${ANTHROPIC_MODEL}" ] && ENV_VARS="${ENV_VARS},ANTHROPIC_MODEL=${ANTHROPIC_MODEL}"
+    [ -n "${ANTHROPIC_SMALL_FAST_MODEL}" ] && ENV_VARS="${ENV_VARS},ANTHROPIC_SMALL_FAST_MODEL=${ANTHROPIC_SMALL_FAST_MODEL}"
+    [ -n "${ANTHROPIC_DEFAULT_HAIKU_MODEL}" ] && ENV_VARS="${ENV_VARS},ANTHROPIC_DEFAULT_HAIKU_MODEL=${ANTHROPIC_DEFAULT_HAIKU_MODEL}"
+    [ -n "${DISABLE_PROMPT_CACHING}" ] && ENV_VARS="${ENV_VARS},DISABLE_PROMPT_CACHING=${DISABLE_PROMPT_CACHING}"
+    [ -n "${CLAUDE_CODE_USE_BEDROCK}" ] && ENV_VARS="${ENV_VARS},CLAUDE_CODE_USE_BEDROCK=${CLAUDE_CODE_USE_BEDROCK}"
+    [ -n "${S3_WORKSPACE_BUCKET}" ] && ENV_VARS="${ENV_VARS},S3_WORKSPACE_BUCKET=${S3_WORKSPACE_BUCKET}"
+    ENV_VARS="${ENV_VARS},OAUTH_CALLBACK_URL=${NEW_OAUTH_CALLBACK_URL}"
+
+    # Update runtime with all required parameters (matching 02_deploy_agentcore.sh)
+    echo "  Updating runtime with:"
+    echo "    Container: ${DOCKER_IMAGE_URI}"
+    echo "    Role: ${ROLE_ARN}"
+    echo "    OAUTH_CALLBACK_URL: ${NEW_OAUTH_CALLBACK_URL}"
+    echo ""
+
+    if [ -n "$AUTHORIZER_CONFIG" ]; then
+        UPDATE_RUNTIME_RESULT=$(aws bedrock-agentcore-control update-agent-runtime \
+            --agent-runtime-id "${RUNTIME_ID}" \
+            --region "${AWS_REGION}" \
+            --agent-runtime-artifact "containerConfiguration={containerUri=${DOCKER_IMAGE_URI}}" \
+            --network-configuration "networkMode=PUBLIC" \
+            --role-arn "${ROLE_ARN}" \
+            --request-header-configuration "requestHeaderAllowlist=[Authorization]" \
+            --environment-variables "${ENV_VARS}" \
+            --authorizer-configuration "${AUTHORIZER_CONFIG}" \
+            2>&1)
+    else
+        UPDATE_RUNTIME_RESULT=$(aws bedrock-agentcore-control update-agent-runtime \
+            --agent-runtime-id "${RUNTIME_ID}" \
+            --region "${AWS_REGION}" \
+            --agent-runtime-artifact "containerConfiguration={containerUri=${DOCKER_IMAGE_URI}}" \
+            --network-configuration "networkMode=PUBLIC" \
+            --role-arn "${ROLE_ARN}" \
+            --request-header-configuration "requestHeaderAllowlist=[Authorization]" \
+            --environment-variables "${ENV_VARS}" \
+            2>&1)
+    fi
+
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓${NC} Updated AgentCore Runtime environment variables"
+        echo "  Set OAUTH_CALLBACK_URL=${NEW_OAUTH_CALLBACK_URL}"
+    else
+        echo -e "${RED}Error: Failed to update AgentCore Runtime${NC}"
+        echo "$UPDATE_RUNTIME_RESULT"
+        exit 1
+    fi
+else
+    echo -e "${YELLOW}Warning: AGENT_RUNTIME_ARN not found, skipping runtime update${NC}"
     echo "  You may need to run: ./02_deploy_agentcore.sh"
 fi
 

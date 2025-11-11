@@ -472,14 +472,17 @@ if [ -n "$OAUTH_CALLBACK_URL" ]; then
     echo -e "${YELLOW}Updating workload identity OAuth callback URLs...${NC}"
     WORKLOAD_IDENTITY_NAME=$(echo "$WORKLOAD_IDENTITY_ARN" | awk -F'/' '{print $NF}')
 
-    aws bedrock-agentcore-control update-workload-identity \
+    UPDATE_RESULT=$(aws bedrock-agentcore-control update-workload-identity \
         --name "${WORKLOAD_IDENTITY_NAME}" \
         --region "${AWS_REGION}" \
-        --allowed-resource-oauth2-return-urls "${OAUTH_CALLBACK_URL}" \
-        2>/dev/null || echo -e "${YELLOW}Warning: Could not update workload identity OAuth URLs${NC}"
+        --allowed-resource-oauth2-return-urls "[\"${OAUTH_CALLBACK_URL}\"]" \
+        2>&1)
 
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✓${NC} Workload identity OAuth URLs updated"
+    else
+        echo -e "${YELLOW}Warning: Could not update workload identity OAuth URLs${NC}"
+        echo "$UPDATE_RESULT"
     fi
 fi
 
