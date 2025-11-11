@@ -319,7 +319,7 @@ async def get_github_oauth_token(request: Request):
         response = client.get_resource_oauth2_token(
             workloadIdentityToken=workload_token,
             resourceCredentialProviderName=github_provider_name,
-            scopes=["repo", "read:user", "read:org"],
+            scopes=["repo", "read:user", "user:email", "read:org", "read:project"],
             oauth2Flow="USER_FEDERATION",
             resourceOauth2ReturnUrl=oauth_callback_url,
             forceAuthentication=False
