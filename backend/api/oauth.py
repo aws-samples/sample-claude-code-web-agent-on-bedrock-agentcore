@@ -131,19 +131,87 @@ async def initialize_gh_auth(access_token: str) -> dict:
         # Send token to stdin and close
         stdout, stderr = await process.communicate(input=access_token.encode())
 
-        if process.returncode == 0:
-            logger.info("Successfully initialized GitHub CLI authentication")
-            return {
-                "status": "success",
-                "message": "GitHub CLI authenticated successfully"
-            }
-        else:
+        if process.returncode != 0:
             error_msg = stderr.decode() if stderr else "Unknown error"
             logger.error(f"Failed to initialize GitHub CLI auth: {error_msg}")
             return {
                 "status": "failed",
                 "message": f"gh auth login failed: {error_msg}"
             }
+
+        logger.info("Successfully initialized GitHub CLI authentication")
+
+        # Step 2: Run 'gh auth setup-git' to configure git credential helper globally
+        try:
+            logger.info("Setting up git to use GitHub CLI credentials")
+            setup_git_process = await asyncio.create_subprocess_exec(
+                "gh", "auth", "setup-git",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            setup_stdout, setup_stderr = await setup_git_process.communicate()
+
+            if setup_git_process.returncode == 0:
+                logger.info("Successfully configured git to use GitHub CLI credentials")
+            else:
+                setup_error = setup_stderr.decode() if setup_stderr else ""
+                logger.warning(f"Failed to setup git credentials: {setup_error}")
+        except Exception as e:
+            logger.warning(f"Failed to run gh auth setup-git: {e}")
+
+        # Step 3: Configure git user.name and user.email globally from GitHub CLI
+        try:
+            logger.info("Configuring global git user info from GitHub CLI")
+
+            # Get GitHub username using gh api
+            gh_user_process = await asyncio.create_subprocess_exec(
+                "gh", "api", "user", "--jq", ".login",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            gh_user_stdout, gh_user_stderr = await gh_user_process.communicate()
+
+            if gh_user_process.returncode == 0 and gh_user_stdout:
+                gh_username = gh_user_stdout.decode().strip()
+
+                # Get GitHub email using gh api
+                gh_email_process = await asyncio.create_subprocess_exec(
+                    "gh", "api", "user/emails", "--jq", ".[0].email",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                gh_email_stdout, gh_email_stderr = await gh_email_process.communicate()
+
+                if gh_email_process.returncode == 0 and gh_email_stdout:
+                    gh_email = gh_email_stdout.decode().strip()
+
+                    # Set global git config user.name
+                    await asyncio.create_subprocess_exec(
+                        "git", "config", "--global", "user.name", gh_username,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+
+                    # Set global git config user.email
+                    await asyncio.create_subprocess_exec(
+                        "git", "config", "--global", "user.email", gh_email,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                    )
+
+                    logger.info(f"Configured global git user: {gh_username} <{gh_email}>")
+                else:
+                    logger.warning("Failed to get GitHub email from gh CLI")
+            else:
+                gh_error = gh_user_stderr.decode() if gh_user_stderr else ""
+                logger.warning(f"Failed to get GitHub username from gh CLI: {gh_error}")
+        except Exception as e:
+            logger.warning(f"Failed to configure global git user info: {e}")
+
+        return {
+            "status": "success",
+            "message": "GitHub CLI authenticated and git configured successfully"
+        }
 
     except Exception as e:
         logger.error(f"Exception during gh auth setup: {str(e)}", exc_info=True)
