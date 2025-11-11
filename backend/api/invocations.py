@@ -50,6 +50,16 @@ from .sessions import (
     list_sessions,
 )
 from .oauth import get_github_oauth_token
+from .git import (
+    get_git_log,
+    get_git_status,
+    create_git_commit,
+    push_commits,
+    GitLogRequest,
+    GitStatusRequest,
+    GitCommitRequest,
+    GitPushRequest,
+)
 
 router = APIRouter()
 
@@ -599,6 +609,26 @@ async def invocations(http_request: Request, request: dict[str, Any]):
                 project_name=project_name,
                 branch=branch
             )
+
+        elif path == "/git/log" and method == "POST":
+            # Get git log
+            req = GitLogRequest(**payload)
+            return await get_git_log(req)
+
+        elif path == "/git/status" and method == "POST":
+            # Get git status
+            req = GitStatusRequest(**payload)
+            return await get_git_status(req)
+
+        elif path == "/git/commit" and method == "POST":
+            # Create git commit
+            req = GitCommitRequest(**payload)
+            return await create_git_commit(req)
+
+        elif path == "/git/push" and method == "POST":
+            # Push git commits
+            req = GitPushRequest(**payload)
+            return await push_commits(req)
 
         elif path == "/health" and method == "GET":
             # Health check - import here to avoid circular dependency
