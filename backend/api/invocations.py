@@ -408,20 +408,43 @@ async def invocations(http_request: Request, request: dict[str, Any]):
             return await close_session(session_id)
 
         elif path == "/files" and method == "GET":
-            # List files
+            # List files - resolve path based on project context
             file_path = payload.get("path", ".")
+            # If project_name is provided in session, prepend the project base path
+            if project_name:
+                from pathlib import Path
+                workspace_base = os.environ.get("WORKSPACE_BASE_PATH", "/workspace")
+                # Project path format: /workspace/{project_name}/
+                project_base = Path(workspace_base) / project_name
+                # If file_path is relative, make it relative to project base
+                if not Path(file_path).is_absolute():
+                    file_path = str(project_base / file_path)
             return await list_files(path=file_path)
 
         elif path == "/files/info" and method == "GET":
-            # Get file info
+            # Get file info - resolve path based on project context
             file_path = payload.get("path")
             if not file_path:
                 raise HTTPException(status_code=400, detail="Missing 'path' in payload")
+            # If project_name is provided in session, prepend the project base path
+            if project_name:
+                from pathlib import Path
+                workspace_base = os.environ.get("WORKSPACE_BASE_PATH", "/workspace")
+                project_base = Path(workspace_base) / project_name
+                if not Path(file_path).is_absolute():
+                    file_path = str(project_base / file_path)
             return await get_file_info(path=file_path)
 
         elif path == "/files/save" and method == "POST":
-            # Save file
+            # Save file - resolve path based on project context
             req = SaveFileRequest(**payload)
+            # If project_name is provided in session, prepend the project base path
+            if project_name:
+                from pathlib import Path
+                workspace_base = os.environ.get("WORKSPACE_BASE_PATH", "/workspace")
+                project_base = Path(workspace_base) / project_name
+                if not Path(req.path).is_absolute():
+                    req.path = str(project_base / req.path)
             return await save_file(req)
 
         elif path == "/shell/execute" and method == "POST":
