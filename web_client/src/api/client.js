@@ -67,9 +67,12 @@ class DirectAPIClient {
     return { response, data: response.ok ? await response.json() : null }
   }
 
-  async getSessionHistory(sessionId) {
+  async getSessionHistory(sessionId, cwd = null) {
     const authHeaders = await getAuthHeaders()
-    const response = await fetch(`${this.baseUrl}/sessions/${sessionId}/history`, {
+    const url = cwd
+      ? `${this.baseUrl}/sessions/${sessionId}/history?cwd=${encodeURIComponent(cwd)}`
+      : `${this.baseUrl}/sessions/${sessionId}/history`
+    const response = await fetch(url, {
       headers: authHeaders
     })
     return { response, data: response.ok ? await response.json() : null }
@@ -190,6 +193,23 @@ class DirectAPIClient {
       headers: authHeaders
     })
     return response.ok
+  }
+
+  async closeAllSessions(cwd = null) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/sessions/close_all`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
+      body: JSON.stringify(cwd ? { cwd } : {})
+    })
+    handleFetchResponse(response)
+    if (!response.ok) {
+      throw new Error('Failed to close all sessions')
+    }
+    return response.json()
   }
 
   async setModel(sessionId, model) {
@@ -886,13 +906,15 @@ class InvocationsAPIClient {
     }
   }
 
-  async getSessionHistory(sessionId) {
+  async getSessionHistory(sessionId, cwd = null) {
     try {
+      const queryParams = cwd ? { cwd } : null
       const data = await this._invoke(
         '/sessions/{session_id}/history',
         'GET',
         null,
-        { session_id: sessionId }
+        { session_id: sessionId },
+        queryParams
       )
       return { response: { ok: true, status: 200 }, data }
     } catch (error) {
@@ -1016,6 +1038,11 @@ class InvocationsAPIClient {
     } catch (error) {
       return false
     }
+  }
+
+  async closeAllSessions(cwd = null) {
+    const payload = cwd ? { cwd } : {}
+    return this._invoke('/sessions/close_all', 'POST', payload)
   }
 
   async setModel(sessionId, model) {

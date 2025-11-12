@@ -185,6 +185,15 @@ async def invocations(http_request: Request, request: dict[str, Any]):
         else:
             print(f"⚠️  Claude sync manager not initialized, skipping sync for user {user_id}")
 
+    # Initialize GitHub OAuth authentication (first time only)
+    if user_id:
+        from ..api.oauth import try_initialize_github_oauth
+        try:
+            await try_initialize_github_oauth(http_request, user_id)
+        except Exception as e:
+            # Log error but don't fail the request
+            print(f"⚠️  Warning: Exception during GitHub OAuth initialization for user {user_id}: {e}")
+
     # Ensure project directory is synced from S3 (first time only)
     if user_id and project_name:
         from ..core.workspace_sync import sync_project_from_s3, backup_project_to_s3
@@ -284,6 +293,12 @@ async def invocations(http_request: Request, request: dict[str, Any]):
                 session_payload["user_id"] = user_id
             req = CreateSessionRequest(**session_payload)
             return await create_session(req)
+
+        elif path == "/sessions/close_all" and method == "POST":
+            # Close all sessions (optionally filtered by cwd)
+            cwd = payload.get("cwd") if payload else None
+            from .sessions import close_all_sessions
+            return await close_all_sessions(cwd)
 
         elif path == "/sessions" and method == "GET":
             # List sessions

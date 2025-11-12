@@ -281,3 +281,32 @@ async def close_session(session_id: str):
     manager = get_session_manager()
     await manager.close_session(session_id)
     return {"status": "closed"}
+
+
+@router.post("/sessions/close_all")
+async def close_all_sessions(cwd: Optional[str] = None):
+    """
+    Close all active sessions, optionally filtered by cwd.
+
+    Args:
+        cwd: Optional working directory to filter sessions
+
+    Returns:
+        Number of sessions closed
+    """
+    manager = get_session_manager()
+
+    # Get all sessions (filtered by cwd if provided)
+    sessions = manager.list_sessions(cwd=cwd)
+
+    # Close each session
+    closed_count = 0
+    for session_info in sessions:
+        try:
+            await manager.close_session(session_info.session_id)
+            closed_count += 1
+        except Exception as e:
+            # Log error but continue closing other sessions
+            print(f"Failed to close session {session_info.session_id}: {e}")
+
+    return {"status": "success", "closed_count": closed_count}

@@ -18,6 +18,101 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Track which users have had GitHub OAuth initialization attempted
+# This prevents repeated initialization attempts for the same user
+_github_oauth_initialized_users: set[str] = set()
+
+
+async def try_initialize_github_oauth(request: Request, user_id: str) -> None:
+    """
+    Try to initialize GitHub OAuth authentication for a user (first time only).
+
+    This function is called on the first invocations request for each user.
+    It attempts to:
+    1. Check if gh CLI is already authenticated - if yes, do nothing
+    2. Try to get GitHub OAuth token and authenticate gh CLI
+    3. Mark user as initialized (whether successful or not) to avoid repeated attempts
+
+    Args:
+        request: FastAPI Request object with headers
+        user_id: User ID
+
+    Note:
+        This function silently handles all errors and never raises exceptions.
+        It's designed to be a best-effort initialization that doesn't block requests.
+    """
+    global _github_oauth_initialized_users
+
+    # Check if already attempted initialization for this user
+    if user_id in _github_oauth_initialized_users:
+        return
+
+    # Mark as attempted (do this first to avoid repeated attempts on concurrent requests)
+    _github_oauth_initialized_users.add(user_id)
+
+    try:
+        # Check if gh CLI is already authenticated
+        auth_status = await check_gh_auth_status()
+        if auth_status.get("authenticated"):
+            print(f"✅ GitHub CLI already authenticated for user {user_id}")
+            return
+
+        # Try to get OAuth token and authenticate
+        print(f"🔑 Attempting GitHub OAuth initialization for user {user_id}...")
+
+        # Extract required headers
+        workload_token = request.headers.get("x-amzn-bedrock-agentcore-runtime-workload-accesstoken")
+        if not workload_token:
+            print(f"⚠️  Missing workload token for user {user_id}, skipping GitHub OAuth")
+            return
+
+        # Call the OAuth token endpoint logic
+        try:
+            # Get OAuth callback URL from environment variable
+            oauth_callback_url = os.environ.get("OAUTH_CALLBACK_URL", "http://localhost:8080/oauth/callback")
+
+            client = get_bedrock_agentcore_client()
+            provider_name = get_github_provider_name()
+
+            response = client.get_resource_oauth2_token(
+                workloadIdentityToken=workload_token,
+                resourceCredentialProviderName=provider_name,
+                scopes=["repo", "read:user", "user:email"],
+                oauth2Flow="USER_FEDERATION",
+                sessionUri=user_id,
+                forceAuthentication=False,  # Don't force - use existing if available
+                oauth2CallbackUrl=oauth_callback_url
+            )
+
+            # Check if we got an access token
+            access_token = response.get("accessToken")
+            session_status = response.get("sessionStatus", "")
+
+            if access_token:
+                # Try to authenticate gh CLI with the token
+                result = await initialize_gh_auth(access_token)
+                if result.get("status") == "success":
+                    print(f"✅ Successfully initialized GitHub CLI for user {user_id}")
+                else:
+                    print(f"⚠️  GitHub CLI authentication failed for user {user_id}: {result.get('message')}")
+            elif session_status == "IN_PROGRESS":
+                print(f"⚠️  GitHub OAuth in progress for user {user_id} - user needs to complete authorization")
+            else:
+                print(f"⚠️  GitHub OAuth not available for user {user_id}")
+
+        except ClientError as e:
+            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+            if error_code == "ResourceNotFoundException":
+                print(f"⚠️  GitHub OAuth provider not configured")
+            else:
+                print(f"⚠️  GitHub OAuth failed for user {user_id}: {error_code}")
+        except Exception as e:
+            print(f"⚠️  GitHub OAuth initialization error for user {user_id}: {e}")
+
+    except Exception as e:
+        # Catch-all to ensure we never break the request
+        print(f"⚠️  Unexpected error during GitHub OAuth initialization for user {user_id}: {e}")
+
 
 def get_github_provider_name() -> str:
     """

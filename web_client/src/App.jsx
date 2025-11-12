@@ -226,7 +226,21 @@ function AppContent() {
 
     console.log(`📂 Working directory changed to: ${newWorkingDir}`)
 
-    // Disconnect current session when switching projects
+    // Close all active sessions for the current project before switching
+    if (currentProject) {
+      try {
+        const currentCwd = `/workspace/${currentProject}`
+        const agentCoreSessionId = await getAgentCoreSessionId(currentProject)
+        const apiClient = createAPIClient(settings.serverUrl, agentCoreSessionId)
+        const result = await apiClient.closeAllSessions(currentCwd)
+        console.log(`✅ Closed ${result.closed_count} active session(s) for project "${currentProject}"`)
+      } catch (error) {
+        console.error(`Failed to close sessions for project "${currentProject}":`, error)
+        // Continue with switch even if closing fails
+      }
+    }
+
+    // Disconnect current UI session when switching projects
     if (connected) {
       clearSession()
     }
@@ -356,6 +370,10 @@ function AppContent() {
   }, [connected, serverDisconnected])
 
   const handleLogout = async () => {
+    if (!window.confirm('Logout?\n\nThis will stop all background requests, close any active sessions, and log you out.')) {
+      return
+    }
+
     console.log('🚪 Logging out...')
 
     try {

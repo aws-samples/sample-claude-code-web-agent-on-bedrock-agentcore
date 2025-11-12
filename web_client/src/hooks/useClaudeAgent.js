@@ -251,10 +251,17 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
       if (config.backgroundModel.trim()) {
         payload.background_model = config.backgroundModel.trim()
       }
+      if (config.cwd.trim()) {
+        payload.cwd = config.cwd.trim()
+      }
 
       const data = await apiClientRef.current.createSession(payload)
       setSessionId(data.session_id)
       setMessages([])
+
+      // Update session info with new session ID
+      setSessionInfo(`Session ID: ${data.session_id}`)
+
       addSystemMessage('✅ New session started')
     } catch (error) {
       addErrorMessage(`Failed to clear session: ${error.message}`)
@@ -287,6 +294,13 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
           switch (data.type) {
             case 'start':
               console.log('🚀 Stream started')
+
+              // Update session_id if provided in start event (different from current)
+              if (data.session_id && data.session_id !== sessionId) {
+                console.log(`🔄 Updating session ID from temporary to real: ${sessionId} → ${data.session_id}`)
+                setSessionId(data.session_id)
+                setSessionInfo(`Session ID: ${data.session_id}`)
+              }
               break
 
             case 'text':
@@ -367,6 +381,7 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
               if (data.session_id && data.session_id !== sessionId) {
                 console.log(`🔄 Updating session ID from temporary to real: ${sessionId} → ${data.session_id}`)
                 setSessionId(data.session_id)
+                setSessionInfo(`Session ID: ${data.session_id}`)
               }
 
               // Show cost if available and non-zero
@@ -382,6 +397,7 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
               if (data.session_id && data.session_id !== sessionId) {
                 console.log(`🔄 Updating session ID from temporary to real: ${sessionId} → ${data.session_id}`)
                 setSessionId(data.session_id)
+                setSessionInfo(`Session ID: ${data.session_id}`)
               }
 
               eventSource.close()
@@ -481,7 +497,7 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
       // First, try to get the session's original cwd from history
       let sessionCwd = config.cwd
       try {
-        const { response: historyResponse, data: historyData } = await apiClientRef.current.getSessionHistory(existingSessionId)
+        const { response: historyResponse, data: historyData } = await apiClientRef.current.getSessionHistory(existingSessionId, config.cwd)
         if (historyResponse.ok && historyData && historyData.metadata && historyData.metadata.cwd) {
           sessionCwd = historyData.metadata.cwd
         }
@@ -513,17 +529,19 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
         const createData = await apiClientRef.current.createSession(payload)
         setSessionId(createData.session_id)
         setConnected(true)
+        setSessionInfo(`Session ID: ${createData.session_id}`)
       } else if (!statusResponse.ok) {
         throw new Error('Session error')
       } else {
         // Session is already active
         setSessionId(existingSessionId)
         setConnected(true)
+        setSessionInfo(`Session ID: ${existingSessionId}`)
       }
 
       // Try to load message history from disk
       try {
-        const { response: historyResponse, data: historyData } = await apiClientRef.current.getSessionHistory(existingSessionId)
+        const { response: historyResponse, data: historyData } = await apiClientRef.current.getSessionHistory(existingSessionId, sessionCwd)
         if (historyResponse.ok && historyData) {
 
           // Convert history messages to UI format
