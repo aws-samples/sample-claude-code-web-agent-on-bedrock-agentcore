@@ -566,14 +566,45 @@ async def github_oauth_callback(request: Request, session_id: str):
 
         logger.info(f"Successfully completed OAuth flow for user {user_id}, session {session_id}")
 
-        # NOTE: We do NOT initialize gh CLI here because:
-        # 1. Web client callback request does not include workload token
-        # 2. complete_resource_token_auth API does not return access token
-        # 3. To get access token, we need to call get_resource_oauth2_token which requires workload token
-        #
-        # GitHub CLI initialization happens in get_github_oauth_token endpoint instead,
-        # which has the workload token and can retrieve the access token properly.
-        logger.info(f"OAuth callback completed. User should call /oauth/github/token to initialize gh CLI.")
+        # Automatically get token and initialize gh CLI
+        # Extract workload identity token from request headers
+        workload_token = request.headers.get("x-amzn-bedrock-agentcore-runtime-workload-accesstoken")
+
+        if workload_token:
+            logger.info(f"Attempting to initialize gh CLI automatically after OAuth callback")
+            try:
+                # Get OAuth callback URL from environment variable
+                oauth_callback_url = os.environ.get("OAUTH_CALLBACK_URL", "http://localhost:8080/oauth/callback")
+
+                provider_name = get_github_provider_name()
+
+                # Get access token with forceAuthentication=False
+                token_response = client.get_resource_oauth2_token(
+                    workloadIdentityToken=workload_token,
+                    resourceCredentialProviderName=provider_name,
+                    scopes=["repo", "read:user", "user:email", "read:org", "read:project"],
+                    oauth2Flow="USER_FEDERATION",
+                    sessionUri=user_id,
+                    forceAuthentication=False,  # Use existing token
+                    resourceOauth2ReturnUrl=oauth_callback_url
+                )
+
+                access_token = token_response.get("accessToken")
+                if access_token:
+                    # Initialize GitHub CLI with the token
+                    gh_auth_result = await initialize_gh_auth(access_token)
+                    if gh_auth_result["status"] == "success":
+                        logger.info(f"✅ Successfully initialized gh CLI for user {user_id} after OAuth callback")
+                    else:
+                        logger.warning(f"⚠️  Failed to initialize gh CLI: {gh_auth_result.get('message')}")
+                else:
+                    logger.warning(f"⚠️  No access token returned after OAuth callback")
+
+            except Exception as e:
+                # Log error but don't fail the callback
+                logger.error(f"⚠️  Failed to automatically initialize gh CLI after OAuth callback: {e}")
+        else:
+            logger.warning(f"⚠️  No workload token in callback request, cannot initialize gh CLI automatically")
 
         # Return success HTML page
         html_content = """
