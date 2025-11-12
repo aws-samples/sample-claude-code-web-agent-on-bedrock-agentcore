@@ -68,20 +68,9 @@ async def try_initialize_github_oauth(request: Request, user_id: str) -> None:
 
         # Call the OAuth token endpoint logic
         try:
-            # Get OAuth callback URL from environment variable
-            oauth_callback_url = os.environ.get("OAUTH_CALLBACK_URL", "http://localhost:8080/oauth/callback")
-
-            client = get_bedrock_agentcore_client()
-            provider_name = get_github_provider_name()
-
-            response = client.get_resource_oauth2_token(
-                workloadIdentityToken=workload_token,
-                resourceCredentialProviderName=provider_name,
-                scopes=["repo", "read:user", "user:email", "read:org", "read:project"],
-                oauth2Flow="USER_FEDERATION",
-                sessionUri=user_id,
-                forceAuthentication=False,  # Don't force - use existing if available
-                resourceOauth2ReturnUrl=oauth_callback_url
+            response = await get_github_resource_token(
+                workload_token=workload_token,
+                force_authentication=False
             )
 
             # Check if we got an access token
@@ -328,6 +317,44 @@ def get_bedrock_agentcore_client():
     return boto3.client("bedrock-agentcore", region_name=region)
 
 
+async def get_github_resource_token(
+    workload_token: str,
+    force_authentication: bool = False
+) -> dict:
+    """
+    Get GitHub OAuth2 resource token using Bedrock AgentCore Identity.
+
+    This is a helper function to centralize all get_resource_oauth2_token calls
+    with consistent parameters.
+
+    Args:
+        workload_token: Workload identity token from request headers
+        force_authentication: Whether to force new authentication (default: False)
+
+    Returns:
+        dict: Response from get_resource_oauth2_token API with:
+            - accessToken: GitHub OAuth access token (if available)
+            - authorizationUrl: URL to complete authorization (if IN_PROGRESS)
+            - sessionUri: Session identifier
+            - sessionStatus: "IN_PROGRESS" | "FAILED" | (success if accessToken present)
+
+    Raises:
+        ClientError: If API call fails
+    """
+    client = get_bedrock_agentcore_client()
+    provider_name = get_github_provider_name()
+    oauth_callback_url = os.environ.get("OAUTH_CALLBACK_URL", "http://localhost:8080/oauth/callback")
+
+    return client.get_resource_oauth2_token(
+        workloadIdentityToken=workload_token,
+        resourceCredentialProviderName=provider_name,
+        scopes=["repo", "read:user", "user:email", "read:org", "read:project"],
+        oauth2Flow="USER_FEDERATION",
+        forceAuthentication=force_authentication,
+        resourceOauth2ReturnUrl=oauth_callback_url
+    )
+
+
 @router.post("/oauth/github/token")
 async def get_github_oauth_token(request: Request):
     """
@@ -404,20 +431,11 @@ async def get_github_oauth_token(request: Request):
         logger.warning("OAUTH_CALLBACK_URL not set, using default: http://localhost:8080/oauth/callback")
         oauth_callback_url = "http://localhost:8080/oauth/callback"
 
-    logger.info(f"Using OAuth callback URL: {oauth_callback_url}")
-
     try:
-        client = get_bedrock_agentcore_client()
-
         # First attempt with forceAuthentication=False
-        github_provider_name = get_github_provider_name()
-        response = client.get_resource_oauth2_token(
-            workloadIdentityToken=workload_token,
-            resourceCredentialProviderName=github_provider_name,
-            scopes=["repo", "read:user", "user:email", "read:org", "read:project"],
-            oauth2Flow="USER_FEDERATION",
-            resourceOauth2ReturnUrl=oauth_callback_url,
-            forceAuthentication=False
+        response = await get_github_resource_token(
+            workload_token=workload_token,
+            force_authentication=False
         )
 
         # Extract token information from response
@@ -455,13 +473,9 @@ async def get_github_oauth_token(request: Request):
                 # gh auth failed - retry with forceAuthentication=True
                 logger.warning(f"GitHub CLI authentication failed, retrying with forceAuthentication=True")
 
-                retry_response = client.get_resource_oauth2_token(
-                    workloadIdentityToken=workload_token,
-                    resourceCredentialProviderName=github_provider_name,
-                    scopes=["repo", "read:user", "user:email", "read:org", "read:project"],
-                    oauth2Flow="USER_FEDERATION",
-                    resourceOauth2ReturnUrl=oauth_callback_url,
-                    forceAuthentication=True
+                retry_response = await get_github_resource_token(
+                    workload_token=workload_token,
+                    force_authentication=True
                 )
 
                 retry_access_token = retry_response.get("accessToken")
@@ -573,20 +587,10 @@ async def github_oauth_callback(request: Request, session_id: str):
         if workload_token:
             logger.info(f"Attempting to initialize gh CLI automatically after OAuth callback")
             try:
-                # Get OAuth callback URL from environment variable
-                oauth_callback_url = os.environ.get("OAUTH_CALLBACK_URL", "http://localhost:8080/oauth/callback")
-
-                provider_name = get_github_provider_name()
-
                 # Get access token with forceAuthentication=False
-                token_response = client.get_resource_oauth2_token(
-                    workloadIdentityToken=workload_token,
-                    resourceCredentialProviderName=provider_name,
-                    scopes=["repo", "read:user", "user:email", "read:org", "read:project"],
-                    oauth2Flow="USER_FEDERATION",
-                    sessionUri=user_id,
-                    forceAuthentication=False,  # Use existing token
-                    resourceOauth2ReturnUrl=oauth_callback_url
+                token_response = await get_github_resource_token(
+                    workload_token=workload_token,
+                    force_authentication=False
                 )
 
                 access_token = token_response.get("accessToken")
