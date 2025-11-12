@@ -455,8 +455,25 @@ function AppContent() {
     try {
       const agentCoreSessionId = await getAgentCoreSessionId(currentProject)
       const apiClient = createAPIClient(settings.serverUrl, agentCoreSessionId)
+
+      // Step 1: Close all Claude sessions first to stop health checks and other invocations
+      console.log('📌 Step 1: Closing all Claude sessions...')
+      try {
+        await apiClient.closeAllSessions()
+        console.log('✅ All Claude sessions closed')
+      } catch (error) {
+        console.warn('⚠️  Failed to close sessions (continuing anyway):', error)
+      }
+
+      // Step 2: Wait for pending invocations to complete
+      console.log('⏳ Step 2: Waiting 3 seconds for pending invocations to complete...')
+      await new Promise(resolve => setTimeout(resolve, 3000))
+
+      // Step 3: Stop AgentCore runtime session
+      console.log('🛑 Step 3: Stopping AgentCore runtime session...')
       await apiClient.stopAgentCoreSession('DEFAULT')
-      console.log('✅ Force stopped AgentCore session')
+
+      console.log('✅ AgentCore session stopped successfully')
       alert('AgentCore session stopped successfully')
     } catch (error) {
       console.error('Failed to stop AgentCore session:', error)

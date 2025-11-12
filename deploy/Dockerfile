@@ -5,7 +5,7 @@ FROM node:trixie-slim
 ENV PATH="/root/.local/bin:${PATH}"
 
 RUN apt update && \
-    apt install -y curl git git-lfs wget gh && \
+    apt install -y curl git git-lfs wget gh vim && \
     npm install -g @anthropic-ai/claude-code && \
     curl -LsSf https://astral.sh/uv/install.sh | sh && \
     echo "export VIRTUAL_ENV_DISABLE_PROMPT=1" >> /root/.bashrc && \
