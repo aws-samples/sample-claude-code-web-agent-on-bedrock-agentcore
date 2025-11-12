@@ -77,11 +77,11 @@ async def try_initialize_github_oauth(request: Request, user_id: str) -> None:
             response = client.get_resource_oauth2_token(
                 workloadIdentityToken=workload_token,
                 resourceCredentialProviderName=provider_name,
-                scopes=["repo", "read:user", "user:email"],
+                scopes=["repo", "read:user", "user:email", "read:org", "read:project"],
                 oauth2Flow="USER_FEDERATION",
                 sessionUri=user_id,
                 forceAuthentication=False,  # Don't force - use existing if available
-                oauth2CallbackUrl=oauth_callback_url
+                resourceOauth2ReturnUrl=oauth_callback_url
             )
 
             # Check if we got an access token
@@ -458,7 +458,7 @@ async def get_github_oauth_token(request: Request):
                 retry_response = client.get_resource_oauth2_token(
                     workloadIdentityToken=workload_token,
                     resourceCredentialProviderName=github_provider_name,
-                    scopes=["repo", "read:user", "read:org"],
+                    scopes=["repo", "read:user", "user:email", "read:org", "read:project"],
                     oauth2Flow="USER_FEDERATION",
                     resourceOauth2ReturnUrl=oauth_callback_url,
                     forceAuthentication=True
