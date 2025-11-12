@@ -299,7 +299,7 @@ body {
     align-items: center;
     gap: 8px;
     padding: 0;
-    margin-bottom: 6px;
+    flex-shrink: 0;
 }
 
 .model-selector-label {
@@ -337,6 +337,17 @@ body {
 .model-selector-dropdown:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.running-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--primary-color);
+    font-weight: 500;
+    margin-left: auto;
+    white-space: nowrap;
 }
 
 /* Messages */
@@ -479,16 +490,54 @@ body {
 .input-area {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 8px;
     padding: 16px 20px;
+    padding-top: 24px; /* Extra space for resize handle */
     border-top: 1px solid var(--border-color);
     background-color: var(--bg-color);
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.input-resize-handle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 8px;
+    cursor: ns-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: transparent;
+    z-index: 10;
+    transition: background-color 0.2s;
+}
+
+.input-resize-handle:hover {
+    background-color: var(--border-color);
+}
+
+.resize-handle-bar-horizontal {
+    width: 40px;
+    height: 3px;
+    background-color: var(--text-secondary);
+    border-radius: 2px;
+    opacity: 0.3;
+    transition: opacity 0.2s;
+}
+
+.input-resize-handle:hover .resize-handle-bar-horizontal {
+    opacity: 0.6;
 }
 
 .input-controls {
     display: flex;
     gap: 12px;
     align-items: flex-start;
+    flex: 1;
+    min-height: 0;
 }
 
 .input-controls textarea {
@@ -500,6 +549,7 @@ body {
     font-family: inherit;
     resize: none;
     transition: border-color 0.2s;
+    min-height: 60px;
 }
 
 .input-controls textarea:focus {
@@ -539,6 +589,15 @@ body {
 
 .btn-send {
     align-self: center;
+}
+
+.btn-stop {
+    align-self: center;
+    background-color: var(--danger-color);
+}
+
+.btn-stop:hover:not(:disabled) {
+    background-color: #b91c1c;
 }
 
 .btn-close-session {

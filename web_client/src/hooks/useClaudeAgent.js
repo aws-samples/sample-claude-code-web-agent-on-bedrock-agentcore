@@ -617,6 +617,23 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
     }
   }, [connect, addErrorMessage])
 
+  // Interrupt session - stop current operation
+  const interruptSession = useCallback(async () => {
+    if (!sessionId || !apiClientRef.current) {
+      console.error('No active session to interrupt')
+      return
+    }
+
+    try {
+      console.log('🛑 Interrupting session...')
+      await apiClientRef.current.interruptSession(sessionId)
+      addSystemMessage('⚠️ Operation interrupted')
+    } catch (error) {
+      console.error('Failed to interrupt session:', error)
+      addErrorMessage(`Failed to interrupt: ${error.message}`)
+    }
+  }, [sessionId, addSystemMessage, addErrorMessage])
+
   return {
     connected,
     connecting,
@@ -634,6 +651,7 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
     sendMessage,
     respondToPermission,
     loadSession,
-    retrySession
+    retrySession,
+    interruptSession
   }
 }

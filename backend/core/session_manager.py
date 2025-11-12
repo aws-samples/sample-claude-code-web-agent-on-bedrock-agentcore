@@ -203,14 +203,63 @@ class SessionManager:
             else:
                 path_key = "default"
 
+            # Try to read preview from session file if it exists
+            preview = "Active session"
+            first_message = None
+
+            # Look for session file on disk
+            session_file_path = self.session_dir / path_key / f"{session_id}.jsonl"
+            if session_file_path.exists():
+                try:
+                    with open(session_file_path, encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if not line:
+                                continue
+
+                            try:
+                                entry = json.loads(line)
+                                entry_type = entry.get("type")
+
+                                # Get first user message for preview
+                                if entry_type == "user" and not first_message:
+                                    msg = entry.get("message", {})
+                                    content = msg.get("content", "")
+                                    if isinstance(content, str):
+                                        first_message = content
+                                        preview = content[:100]
+                                        break
+                                    elif isinstance(content, list) and len(content) > 0:
+                                        first_block = content[0]
+                                        if isinstance(first_block, dict):
+                                            first_message = first_block.get("text", "")
+                                            preview = first_message[:100] if first_message else preview
+                                            break
+                                        elif isinstance(first_block, str):
+                                            first_message = first_block
+                                            preview = first_block[:100]
+                                            break
+
+                                # Check for summary
+                                if entry_type == "summary":
+                                    summary = entry.get("summary", "")
+                                    if summary:
+                                        preview = summary[:100]
+                                        break
+                            except json.JSONDecodeError:
+                                continue
+                except Exception as e:
+                    # If reading fails, just use default preview
+                    pass
+
             sessions.append(
                 {
                     "session_id": session_id,
                     "modified": session.last_activity.isoformat(),
-                    "preview": "Active session",
+                    "preview": preview,
                     "project": path_key,
                     "message_count": session.message_count,
-                    "first_message": None,
+                    "first_message": first_message,
                     "active": True,  # Mark as active in-memory session
                 }
             )

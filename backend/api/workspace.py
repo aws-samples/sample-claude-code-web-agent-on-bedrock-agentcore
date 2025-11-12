@@ -321,9 +321,14 @@ async def create_project(request: CreateProjectRequest):
         local_project_path = Path(LOCAL_BASE_PATH) / request.project_name
 
         if local_project_path.exists():
-            raise HTTPException(
-                status_code=400,
-                detail=f"Project {request.project_name} already exists"
+            # Project already exists, just return success
+            logger.info(f"Project {request.project_name} already exists at {local_project_path}")
+            return CreateProjectResponse(
+                status="success",
+                user_id=request.user_id,
+                project_name=request.project_name,
+                local_path=str(local_project_path),
+                message=f"Project {request.project_name} already exists"
             )
 
         local_project_path.mkdir(parents=True, exist_ok=True)

@@ -229,6 +229,22 @@ class DirectAPIClient {
     return response.json()
   }
 
+  async interruptSession(sessionId) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/sessions/${sessionId}/interrupt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders
+      }
+    })
+    handleFetchResponse(response)
+    if (!response.ok) {
+      throw new Error('Failed to interrupt session')
+    }
+    return response.json()
+  }
+
   async listSessions(cwd = null) {
     const authHeaders = await getAuthHeaders()
     const url = cwd
@@ -1050,6 +1066,15 @@ class InvocationsAPIClient {
       '/sessions/{session_id}/model',
       'POST',
       { model },
+      { session_id: sessionId }
+    )
+  }
+
+  async interruptSession(sessionId) {
+    return this._invoke(
+      '/sessions/{session_id}/interrupt',
+      'POST',
+      null,
       { session_id: sessionId }
     )
   }

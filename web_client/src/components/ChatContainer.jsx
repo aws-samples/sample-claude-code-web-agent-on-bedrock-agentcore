@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, X, Loader2, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Send, X, Loader2, AlertTriangle, RefreshCw, Square } from 'lucide-react'
 import Message from './Message'
 
 function ChatContainer({
@@ -12,12 +12,16 @@ function ChatContainer({
   sessionError,
   onRetrySession,
   currentModel,
-  onModelChange
+  onModelChange,
+  onInterrupt
 }) {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [selectedModel, setSelectedModel] = useState(currentModel || '')
   const [isComposing, setIsComposing] = useState(false) // Track IME composition state
+  const [inputHeight, setInputHeight] = useState(120) // Default 120px (3 rows * ~40px)
+  const [isResizingInput, setIsResizingInput] = useState(false)
+  const [isRunning, setIsRunning] = useState(false) // Track if assistant is currently responding
   const messagesEndRef = useRef(null)
 
   // Get available models from environment or use defaults
@@ -44,16 +48,40 @@ function ChatContainer({
     scrollToBottom()
   }, [messages])
 
+  // Detect if assistant is currently responding (streaming message)
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1]
+    if (lastMessage && lastMessage.role === 'assistant' && lastMessage.streaming) {
+      setIsRunning(true)
+    } else {
+      setIsRunning(false)
+    }
+  }, [messages])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!input.trim() || sending) return
+    if (!input.trim() || sending || isRunning) return
 
     setSending(true)
+    setIsRunning(true)
     try {
       await onSendMessage(input)
       setInput('')
+    } catch (error) {
+      console.error('Failed to send message:', error)
     } finally {
       setSending(false)
+    }
+  }
+
+  const handleStop = async () => {
+    if (!isRunning) return
+
+    try {
+      await onInterrupt()
+      setIsRunning(false)
+    } catch (error) {
+      console.error('Failed to stop:', error)
     }
   }
 
@@ -78,17 +106,52 @@ function ChatContainer({
   const handleModelChange = (e) => {
     const newModel = e.target.value
     if (newModel !== currentModel && onModelChange) {
-      const confirmed = window.confirm(
-        `Switch to ${newModel}?\n\nThis will restart the current session with the new model.`
-      )
-      if (confirmed) {
-        setSelectedModel(newModel)
-        onModelChange(newModel)
-      } else {
-        // Reset to current model if cancelled
-        setSelectedModel(currentModel)
+      setSelectedModel(newModel)
+      onModelChange(newModel)
+    }
+  }
+
+  // Handle input area resize
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizingInput) return
+
+      // Calculate new height based on mouse Y position
+      // Note: We're resizing from the top, so we need to calculate from bottom of viewport
+      const inputArea = document.querySelector('.input-area')
+      if (!inputArea) return
+
+      const inputAreaRect = inputArea.getBoundingClientRect()
+      const newHeight = inputAreaRect.bottom - e.clientY
+
+      // Constrain height between 60px and 400px
+      if (newHeight >= 60 && newHeight <= 400) {
+        setInputHeight(newHeight)
       }
     }
+
+    const handleMouseUp = () => {
+      setIsResizingInput(false)
+    }
+
+    if (isResizingInput) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = 'ns-resize'
+      document.body.style.userSelect = 'none'
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isResizingInput])
+
+  const handleResizeStart = (e) => {
+    e.preventDefault()
+    setIsResizingInput(true)
   }
 
   return (
@@ -138,8 +201,17 @@ function ChatContainer({
       </div>
 
       {/* Input Area */}
-      <div className="input-area">
-        {/* Model Selector */}
+      <div className="input-area" style={{ height: `${inputHeight}px` }}>
+        {/* Resize Handle */}
+        <div
+          className="input-resize-handle"
+          onMouseDown={handleResizeStart}
+          title="Drag to resize input area"
+        >
+          <div className="resize-handle-bar-horizontal" />
+        </div>
+
+        {/* Model Selector and Status */}
         <div className="model-selector-compact">
           <label htmlFor="model-select" className="model-selector-label">
             Model:
@@ -149,7 +221,7 @@ function ChatContainer({
             value={selectedModel}
             onChange={handleModelChange}
             className="model-selector-dropdown"
-            disabled={sending}
+            disabled={sending || isRunning}
           >
             {availableModels.map(model => (
               <option key={model} value={model}>
@@ -157,9 +229,15 @@ function ChatContainer({
               </option>
             ))}
           </select>
+          {isRunning && (
+            <span className="running-indicator">
+              <Loader2 size={14} className="spinning" />
+              Running...
+            </span>
+          )}
         </div>
 
-        {/* Message input and send button */}
+        {/* Message input and send/stop button */}
         <div className="input-controls">
           <textarea
             value={input}
@@ -167,18 +245,28 @@ function ChatContainer({
             onKeyDown={handleKeyDown}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
-            placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
-            rows="3"
-            disabled={sending}
+            placeholder={isRunning ? "Agent is running..." : "Type your message here... (Press Enter to send, Shift+Enter for new line)"}
+            disabled={sending || isRunning}
+            style={{ height: '100%', resize: 'none' }}
           />
-          <button
-            onClick={handleSubmit}
-            className="btn-icon btn-send"
-            disabled={sending || !input.trim()}
-            title={sending ? 'Sending...' : 'Send message'}
-          >
-            {sending ? <Loader2 size={20} className="spinning" /> : <Send size={20} />}
-          </button>
+          {isRunning ? (
+            <button
+              onClick={handleStop}
+              className="btn-icon btn-stop"
+              title="Stop current operation"
+            >
+              <Square size={20} />
+            </button>
+          ) : (
+            <button
+              onClick={handleSubmit}
+              className="btn-icon btn-send"
+              disabled={sending || !input.trim()}
+              title={sending ? 'Sending...' : 'Send message'}
+            >
+              {sending ? <Loader2 size={20} className="spinning" /> : <Send size={20} />}
+            </button>
+          )}
         </div>
       </div>
     </div>

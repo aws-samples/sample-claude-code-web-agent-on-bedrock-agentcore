@@ -142,7 +142,8 @@ function AppContent() {
     sendMessage,
     respondToPermission,
     loadSession,
-    retrySession
+    retrySession,
+    interruptSession
   } = useClaudeAgent(settings.serverUrl, user?.userId, currentProject, serverDisconnected, handleMessagesChanged)
 
   // Save settings to localStorage whenever they change
@@ -834,6 +835,7 @@ function AppContent() {
               onRetrySession={retrySession}
               currentModel={settings.model}
               onModelChange={handleModelChange}
+              onInterrupt={interruptSession}
             />
           )}
         </main>
