@@ -15,11 +15,38 @@ Key Features:
 - Graceful error handling
 """
 
+import logging
+import os
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+
+# Get log level from environment variable (default: INFO)
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+
+# Configure root logger
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+
+# Set specific log levels for noisy libraries
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("botocore").setLevel(logging.WARNING)
+logging.getLogger("boto3").setLevel(logging.WARNING)
+
+logger = logging.getLogger(__name__)
 
 from .api import (
     agentcore_router,
@@ -59,7 +86,11 @@ async def lifespan(app: FastAPI):
     # Startup
     print("=" * 80)
     print("🚀 Claude Agent API Server Starting...")
+    print(f"📝 Log Level: {LOG_LEVEL}")
     print("=" * 80)
+
+    logger.info("Starting Claude Agent API Server")
+    logger.info(f"Log level set to: {LOG_LEVEL}")
 
     await pty_manager.start()
 
