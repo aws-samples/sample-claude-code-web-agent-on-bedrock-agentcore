@@ -2991,6 +2991,10 @@ body {
 /* Log Section */
 .git-log-section {
   margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .git-loading,
@@ -3002,8 +3006,9 @@ body {
 }
 
 .git-commits {
-  max-height: 400px;
+  flex: 1;
   overflow-y: auto;
+  min-height: 200px;
 }
 
 .git-commit-item {
