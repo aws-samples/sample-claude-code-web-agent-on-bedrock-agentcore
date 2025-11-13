@@ -164,6 +164,8 @@ Claude Code Web Agent 使用 **AWS Cognito** 进行用户认证,提供安全的�
 4. **Connection Modal**: 登录后,您将看到 "Connect to Server" modal
    - 点击 **"Connect to Server"** 启动后台服务并启用所有功能
 
+![Connect to Server](assets/connect_page.webp)
+
 ### 登录问题排查
 
 - **密码错误**: 仔细检查您的密码并重试
@@ -183,6 +185,8 @@ Claude Code Web Agent 中的 **Project** 是隔离的 workspace,您可以在其�
 - Session history
 - 文件结构
 
+![Project Management](assets/project_page.webp)
+
 ### 创建新 Project
 
 1. **导航到 Projects Tab**: 点击左侧边栏中的文件夹图标(📁)
@@ -196,6 +200,8 @@ Claude Code Web Agent 中的 **Project** 是隔离的 workspace,您可以在其�
 4. **点击 "Create"**: 确认 project 创建
 
 5. **自动切换**: 系统将自动切换到您的新 project
+
+![Create Project](assets/project_create.webp)
 
 ### 从 GitHub 导入
 
@@ -219,6 +225,8 @@ Claude Code Web Agent 中的 **Project** 是隔离的 workspace,您可以在其�
 6. **监控进度**: 在 console 中观察克隆进度
 
 7. **自动切换**: 成功克隆后,project 将被激活
+
+![Import from GitHub](assets/project_github_import.webp)
 
 ### 在 Project 之间切换
 
@@ -287,6 +295,8 @@ Claude Code Web Agent 中的 **Project** 是隔离的 workspace,您可以在其�
 
 4. **查看输出**: 检查 agent 的文本响应和 tool 输出
 
+![Session and Chat](assets/session_agent_chat.webp)
+
 ### Permission 系统
 
 Agent 在执行某些操作时需要 permission:
@@ -344,6 +354,8 @@ Agent 在执行某些操作时需要 permission:
 ### 了解 File Browser
 
 **File Browser** 显示您当前 project 的文件结构,允许您导航、预览和管理文件。
+
+![File Browser](assets/file_explorer.webp)
 
 ### 浏览文件
 
@@ -405,6 +417,8 @@ Agent 在执行某些操作时需要 permission:
 ### 了解 Git 集成
 
 **Git Panel** 提供版本控制功能,允许您查看更改、创建 commit 和 push 到远程仓库。
+
+![Git Panel](assets/git_panel.webp)
 
 ### 查看 Git Status
 
@@ -502,6 +516,8 @@ Agent 在执行某些操作时需要 permission:
 ### 了解集成 Terminal
 
 **Terminal** 提供在服务器上运行的全功能命令行界面,允许您执行命令、运行脚本并与 workspace 交互。
+
+![Terminal](assets/terminal.webp)
 
 ### 打开 Terminal
 

@@ -4,6 +4,8 @@ English | [简体中文](README.zh-CN.md)
 
 A production-ready web agent powered by Claude Code SDK, deployed on AWS Bedrock AgentCore Runtime with React frontend on AWS Amplify.
 
+![Claude Code Web Agent](docs/assets/main_page.webp)
+
 ## Architecture Overview
 
 This solution provides a serverless, scalable Claude Code agent with enterprise-grade features:

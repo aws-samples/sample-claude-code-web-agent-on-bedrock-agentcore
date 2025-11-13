@@ -164,6 +164,8 @@ The Claude Code Web Agent uses **AWS Cognito** for user authentication, providin
 4. **Connection Modal**: After login, you'll see a "Connect to Server" modal
    - Click **"Connect to Server"** to start background services and enable all features
 
+![Connect to Server](assets/connect_page.webp)
+
 ### Troubleshooting Login Issues
 
 - **Incorrect Password**: Double-check your password and try again
@@ -183,6 +185,8 @@ The Claude Code Web Agent uses **AWS Cognito** for user authentication, providin
 - Session history
 - File structure
 
+![Project Management](assets/project_page.webp)
+
 ### Creating a New Project
 
 1. **Navigate to Projects Tab**: Click the folder icon (📁) in the left sidebar
@@ -196,6 +200,8 @@ The Claude Code Web Agent uses **AWS Cognito** for user authentication, providin
 4. **Click "Create"**: Confirm project creation
 
 5. **Auto-Switch**: The system will automatically switch to your new project
+
+![Create Project](assets/project_create.webp)
 
 ### Importing from GitHub
 
@@ -219,6 +225,8 @@ The Claude Code Web Agent uses **AWS Cognito** for user authentication, providin
 6. **Monitor Progress**: Watch the cloning progress in the console
 
 7. **Auto-Switch**: After successful clone, the project will be activated
+
+![Import from GitHub](assets/project_github_import.webp)
 
 ### Switching Between Projects
 
@@ -287,6 +295,8 @@ A **session** represents a conversation with the Claude agent. Each session main
 
 4. **Review Output**: Check the agent's text responses and tool outputs
 
+![Session and Chat](assets/session_agent_chat.webp)
+
 ### Permission System
 
 The agent requires permission for certain operations:
@@ -344,6 +354,8 @@ You can switch models during a session:
 ### Understanding the File Browser
 
 The **File Browser** shows your current project's file structure and allows you to navigate, preview, and manage files.
+
+![File Browser](assets/file_explorer.webp)
 
 ### Navigating Files
 
@@ -405,6 +417,8 @@ Modify utils.py to add error handling to the process_data function
 ### Understanding Git Integration
 
 The **Git Panel** provides version control capabilities, allowing you to view changes, create commits, and push to remote repositories.
+
+![Git Panel](assets/git_panel.webp)
 
 ### Viewing Git Status
 
@@ -502,6 +516,8 @@ Push my changes to the remote repository
 ### Understanding the Integrated Terminal
 
 The **Terminal** provides a full-featured command-line interface running on the server, allowing you to execute commands, run scripts, and interact with your workspace.
+
+![Terminal](assets/terminal.webp)
 
 ### Opening the Terminal
 

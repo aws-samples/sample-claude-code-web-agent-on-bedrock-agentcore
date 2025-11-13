@@ -4,6 +4,8 @@
 
 基于 Claude Code SDK 的生产就绪 Web Agent，部署在 AWS Bedrock AgentCore Runtime 上，使用 React 前端托管在 AWS Amplify。
 
+![Claude Code Web Agent](docs/assets/main_page.webp)
+
 ## 架构概览
 
 该解决方案提供了一个无服务器、可扩展的 Claude Code Agent，具备企业级特性：
