@@ -417,7 +417,19 @@ function AppContent() {
     console.log('🛑 Disconnecting from server...')
 
     try {
-      // Always try to stop AgentCore session
+      // Disconnect from agent session if connected
+      if (connected) {
+        disconnect()
+      }
+
+      // Set server disconnected flag - this will stop all background requests
+      setServerDisconnected(true)
+
+      // Wait 3 seconds for pending invocations to complete
+      console.log('⏳ Waiting 3 seconds for pending invocations to complete...')
+      await new Promise(resolve => setTimeout(resolve, 3000))
+
+      // Stop AgentCore session after delay
       try {
         const agentCoreSessionId = await getAgentCoreSessionId(currentProject)
         const apiClient = createAPIClient(settings.serverUrl, agentCoreSessionId)
@@ -427,14 +439,6 @@ function AppContent() {
         console.warn('Failed to stop AgentCore session:', error)
         // Continue with disconnect even if this fails
       }
-
-      // Disconnect from agent session if connected
-      if (connected) {
-        disconnect()
-      }
-
-      // Set server disconnected flag - this will stop all background requests
-      setServerDisconnected(true)
 
       console.log('✅ Disconnected from server')
     } catch (error) {
@@ -705,13 +709,13 @@ function AppContent() {
               <button
                 onClick={handleForceStopAgentCore}
                 style={{
-                  padding: '0.5rem 1.5rem',
+                  padding: '0.75rem 2rem',
                   backgroundColor: 'var(--danger-color)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  fontSize: '0.875rem',
+                  fontSize: '1rem',
                   fontWeight: '500'
                 }}
               >
