@@ -378,7 +378,16 @@ function AppContent() {
     console.log('🚪 Logging out...')
 
     try {
-      // Always try to stop AgentCore session before logout
+      // Disconnect from agent session if connected
+      if (connected) {
+        disconnect()
+      }
+
+      // Wait 3 seconds for pending invocations to complete
+      console.log('⏳ Waiting 3 seconds for pending invocations to complete...')
+      await new Promise(resolve => setTimeout(resolve, 3000))
+
+      // Stop AgentCore session after delay
       try {
         const agentCoreSessionId = await getAgentCoreSessionId(currentProject)
         const apiClient = createAPIClient(settings.serverUrl, agentCoreSessionId)
@@ -387,11 +396,6 @@ function AppContent() {
       } catch (error) {
         console.warn('Failed to stop AgentCore session:', error)
         // Continue with logout even if this fails
-      }
-
-      // Disconnect from agent session if connected
-      if (connected) {
-        disconnect()
       }
 
       // Logout from Cognito
