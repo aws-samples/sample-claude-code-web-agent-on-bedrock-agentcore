@@ -811,8 +811,3 @@ Logout 会停止所有服务并结束您的 session。
 - **AWS Bedrock 文档**: https://docs.aws.amazon.com/bedrock/
 - **Claude API 文档**: https://docs.anthropic.com/
 - **AWS Amplify 文档**: https://docs.aws.amazon.com/amplify/
-
----
-
-**版本**: 1.0.0
-**最后更新**: 2025-01-13

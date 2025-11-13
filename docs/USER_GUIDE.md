@@ -811,8 +811,3 @@ If the system becomes unresponsive, you can force stop:
 - **AWS Bedrock Documentation**: https://docs.aws.amazon.com/bedrock/
 - **Claude API Documentation**: https://docs.anthropic.com/
 - **AWS Amplify Documentation**: https://docs.aws.amazon.com/amplify/
-
----
-
-**Version**: 1.0.0
-**Last Updated**: 2025-01-13
