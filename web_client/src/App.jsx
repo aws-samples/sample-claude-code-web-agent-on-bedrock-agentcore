@@ -721,6 +721,21 @@ function AppContent() {
               >
                 Force Stop AgentCore
               </button>
+              <button
+                onClick={handleLogout}
+                style={{
+                  padding: '0.75rem 2rem',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: '500'
+                }}
+              >
+                Log Out
+              </button>
             </div>
             <p style={{ marginTop: '1rem', color: '#999', fontSize: '0.875rem' }}>
               Server: {settings.serverUrl}
