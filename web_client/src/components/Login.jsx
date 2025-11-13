@@ -53,7 +53,7 @@ function Login({ onSwitchToSignup }) {
           <div className="form-group">
             <label htmlFor="username">
               <User size={16} />
-              Username or Email
+              Username
             </label>
             <input
               id="username"
