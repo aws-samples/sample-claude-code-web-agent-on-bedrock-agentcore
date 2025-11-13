@@ -808,6 +808,6 @@ If the system becomes unresponsive, you can force stop:
 
 ### Additional Resources
 
+- **Amazon Bedrock AgentCore Documentation**: https://docs.aws.amazon.com/bedrock-agentcore/
 - **AWS Bedrock Documentation**: https://docs.aws.amazon.com/bedrock/
-- **Claude API Documentation**: https://docs.anthropic.com/
 - **AWS Amplify Documentation**: https://docs.aws.amazon.com/amplify/

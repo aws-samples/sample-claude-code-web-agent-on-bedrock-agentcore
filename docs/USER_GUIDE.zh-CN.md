@@ -808,6 +808,6 @@ Logout 会停止所有服务并结束您的 session。
 
 ### 其他资源
 
-- **AWS Bedrock 文档**: https://docs.aws.amazon.com/bedrock/
-- **Claude API 文档**: https://docs.anthropic.com/
+- **Amazon Bedrock AgentCore 文档**: https://docs.aws.amazon.com/bedrock-agentcore/
+- **Amazon Bedrock 文档**: https://docs.aws.amazon.com/bedrock/
 - **AWS Amplify 文档**: https://docs.aws.amazon.com/amplify/
