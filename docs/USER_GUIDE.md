@@ -4,6 +4,17 @@ English | [简体中文](USER_GUIDE.zh-CN.md)
 
 This guide provides step-by-step instructions for deploying and using the Claude Code Web Agent.
 
+## Video Demo
+
+Watch a quick demonstration of the Claude Code Web Agent in action:
+
+<video width="100%" controls>
+  <source src="https://du7u4d2q1sjz6.cloudfront.net/cc_on_ac.mp4" type="video/mp4">
+  Your browser does not support the video tag. [Download the video](https://du7u4d2q1sjz6.cloudfront.net/cc_on_ac.mp4)
+</video>
+
+---
+
 ## Table of Contents
 
 1. [Deployment Guide](#deployment-guide)

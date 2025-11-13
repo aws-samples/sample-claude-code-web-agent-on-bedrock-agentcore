@@ -4,6 +4,17 @@
 
 本手册提供了 Claude Code Web Agent 的部署和使用的详细说明。
 
+## 视频演示
+
+观看 Claude Code Web Agent 的快速演示:
+
+<video width="100%" controls>
+  <source src="https://du7u4d2q1sjz6.cloudfront.net/cc_on_ac.mp4" type="video/mp4">
+  您的浏览器不支持视频标签。[下载视频](https://du7u4d2q1sjz6.cloudfront.net/cc_on_ac.mp4)
+</video>
+
+---
+
 ## 目录
 
 1. [部署指南](#部署指南)
