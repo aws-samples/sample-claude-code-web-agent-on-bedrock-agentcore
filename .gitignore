@@ -62,3 +62,4 @@ deploy/deployment.zip
 docker/test_docker.sh
 
 workshop/*
+temp/*
