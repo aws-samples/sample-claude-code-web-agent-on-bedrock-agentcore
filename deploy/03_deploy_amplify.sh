@@ -200,14 +200,17 @@ if [ -f "${SCRIPT_DIR}/.agentcore_output" ]; then
     fi
     echo "  ✓ Set VITE_USE_INVOCATIONS=true"
 
-    # Set available model list
-    AVAILABLE_MODELS="global.anthropic.claude-sonnet-4-5-20250929-v1:0,global.anthropic.claude-haiku-4-5-20251001-v1:0,qwen.qwen3-coder-480b-a35b-v1:0"
-    if grep -q "^VITE_AVAILABLE_MODELS=" .env; then
-        sed -i.bak "s|^VITE_AVAILABLE_MODELS=.*|VITE_AVAILABLE_MODELS=\"${AVAILABLE_MODELS}\"|" .env
+    # Set available model list (read from config.env)
+    if [ -n "$AVAILABLE_MODELS" ]; then
+        if grep -q "^VITE_AVAILABLE_MODELS=" .env; then
+            sed -i.bak "s|^VITE_AVAILABLE_MODELS=.*|VITE_AVAILABLE_MODELS=\"${AVAILABLE_MODELS}\"|" .env
+        else
+            echo "VITE_AVAILABLE_MODELS=\"${AVAILABLE_MODELS}\"" >> .env
+        fi
+        echo "  ✓ Set VITE_AVAILABLE_MODELS: ${AVAILABLE_MODELS}"
     else
-        echo "VITE_AVAILABLE_MODELS=\"${AVAILABLE_MODELS}\"" >> .env
+        echo "  ⚠ AVAILABLE_MODELS not set in config.env, using defaults from .env"
     fi
-    echo "  ✓ Set VITE_AVAILABLE_MODELS"
 
     # Hide settings button by default
     if grep -q "^VITE_HIDE_SETTINGS_BUTTON=" .env; then
