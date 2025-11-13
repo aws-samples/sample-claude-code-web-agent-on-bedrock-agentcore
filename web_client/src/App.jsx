@@ -857,6 +857,7 @@ function AppContent() {
                 serverUrl={settings.serverUrl}
                 cwd={workingDirectory}
                 disabled={serverDisconnected}
+                isActive={activeTab === 'git'}
               />
             )}
           </div>

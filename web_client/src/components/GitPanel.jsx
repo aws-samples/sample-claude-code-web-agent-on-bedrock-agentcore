@@ -3,7 +3,7 @@ import { GitCommit, GitBranch, RefreshCw, Upload, FileText, Plus, Minus, Edit } 
 import { createAPIClient } from '../api/client'
 import { getAgentCoreSessionId } from '../utils/authUtils'
 
-function GitPanel({ serverUrl, cwd, disabled, currentProject }) {
+function GitPanel({ serverUrl, cwd, disabled, currentProject, isActive }) {
   const [commits, setCommits] = useState([])
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -12,6 +12,7 @@ function GitPanel({ serverUrl, cwd, disabled, currentProject }) {
   const [showCommitForm, setShowCommitForm] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState(new Set())
   const apiClientRef = useRef(null)
+  const prevIsActiveRef = useRef(false)
 
   // Initialize API client
   useEffect(() => {
@@ -112,6 +113,16 @@ function GitPanel({ serverUrl, cwd, disabled, currentProject }) {
       fetchGitStatus()
     }
   }, [cwd, disabled, fetchGitLog, fetchGitStatus])
+
+  // Refresh when tab becomes active
+  useEffect(() => {
+    if (isActive && !prevIsActiveRef.current && cwd && !disabled) {
+      console.log('🔄 Git tab activated, refreshing git status and log')
+      fetchGitLog()
+      fetchGitStatus()
+    }
+    prevIsActiveRef.current = isActive
+  }, [isActive, cwd, disabled, fetchGitLog, fetchGitStatus])
 
   if (disabled) {
     return <div className="git-panel-disabled">Git panel disabled (no server connection)</div>
