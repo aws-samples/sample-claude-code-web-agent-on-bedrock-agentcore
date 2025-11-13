@@ -2,6 +2,8 @@
 
 [English](README.md) | 简体中文
 
+📖 [User Guide](docs/USER_GUIDE.md) | **[用户手册](docs/USER_GUIDE.zh-CN.md)**
+
 基于 Claude Code SDK 的生产就绪 Web Agent，部署在 AWS Bedrock AgentCore Runtime 上，使用 React 前端托管在 AWS Amplify。
 
 ![Claude Code Web Agent](docs/assets/main_page.webp)
