@@ -1,5 +1,7 @@
 # Claude Code Web Agent on Bedrock AgentCore
 
+English | [简体中文](README.zh-CN.md)
+
 A production-ready web agent powered by Claude Code SDK, deployed on AWS Bedrock AgentCore Runtime with React frontend on AWS Amplify.
 
 ## Architecture Overview
@@ -8,27 +10,27 @@ This solution provides a serverless, scalable Claude Code agent with enterprise-
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    AWS Amplify (Frontend)                    │
-│          React Web UI with Cognito Authentication            │
+│                    AWS Amplify (Frontend)                   │
+│          React Web UI with Cognito Authentication           │
 └──────────────────────┬──────────────────────────────────────┘
                        │
                        ↓ HTTPS
 ┌─────────────────────────────────────────────────────────────┐
-│             AWS Bedrock AgentCore Runtime                    │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  FastAPI Backend (Claude Code SDK Wrapper)          │   │
-│  │  • Session Management                                │   │
-│  │  • Permission Callbacks                              │   │
-│  │  • GitHub OAuth Integration                          │   │
-│  │  • Workspace Management (S3)                         │   │
-│  └─────────────────────────────────────────────────────┘   │
+│             AWS Bedrock AgentCore Runtime                   │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │  FastAPI Backend (Claude Code SDK Wrapper)          │    │
+│  │  • Session Management                               │    │
+│  │  • Permission Callbacks                             │    │
+│  │  • GitHub OAuth Integration                         │    │
+│  │  • Workspace Management (S3)                        │    │
+│  └─────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────┘
          │                    │                    │
          ↓                    ↓                    ↓
-    ┌────────┐         ┌──────────┐        ┌──────────┐
-    │ Bedrock│         │  GitHub  │        │    S3    │
-    │ Models │         │   OAuth  │        │Workspace │
-    └────────┘         └──────────┘        └──────────┘
+    ┌─────────┐         ┌──────────┐        ┌───────────┐
+    │ Bedrock │         │  GitHub  │        │    S3     │
+    │ Models  │         │   OAuth  │        │ Workspace │
+    └─────────┘         └──────────┘        └───────────┘
 ```
 
 ### Key Components
