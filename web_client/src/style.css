@@ -3504,10 +3504,11 @@ body {
 
 .mcp-delete-btn {
   margin-right: 8px;
+  background-color: transparent;
   color: var(--danger-color);
 }
 
-.mcp-delete-btn:hover {
+.mcp-delete-btn:hover:not(:disabled) {
   background-color: var(--danger-color);
   color: white;
 }
