@@ -78,19 +78,54 @@ async def list_sessions(cwd: Optional[str] = None):
 
 
 @router.get("/sessions/available")
-async def list_available_sessions(cwd: Optional[str] = None):
+async def list_available_sessions(
+    cwd: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0,
+    group_timelines: bool = True,
+):
     """
     List all available sessions from disk, optionally filtered by cwd.
 
+    Supports pagination and timeline grouping (merging resumed sessions).
+
     Args:
-        cwd: Optional working directory to filter by
+        cwd: Optional working directory to filter by.
+        limit: Maximum number of sessions to return (default: 20).
+        offset: Number of sessions to skip for pagination (default: 0).
+        group_timelines: Whether to group resumed sessions by timeline (default: True).
+            When True, multiple sessions that share the same first user message
+            (i.e., sessions resumed from the same conversation) are merged into
+            a single entry showing only the most recent one.
 
     Returns:
-        List of available sessions
+        Dict with:
+            - sessions: List of session information
+            - has_more: Whether there are more sessions available
+            - total: Total number of sessions (after grouping)
+            - offset: Current offset
+            - limit: Current limit
+
+        Each session includes:
+            - session_id: Unique session identifier
+            - modified: Last activity timestamp (ISO format)
+            - preview: Session summary or first message preview
+            - project: Project directory key
+            - message_count: Number of messages in session
+            - first_message: First user message (truncated)
+            - active: Whether session is currently active in-memory
+            - cwd: Working directory path
+            - is_grouped: (optional) True if this session represents a group
+            - group_size: (optional) Number of sessions in the group
+            - group_sessions: (optional) List of all session IDs in the group
     """
     manager = get_session_manager()
-    sessions = manager.list_available_sessions(cwd=cwd)
-    return {"sessions": sessions}
+    return manager.list_available_sessions(
+        cwd=cwd,
+        limit=limit,
+        offset=offset,
+        group_timelines=group_timelines,
+    )
 
 
 @router.get("/sessions/{session_id}/history")
