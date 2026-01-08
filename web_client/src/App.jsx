@@ -18,7 +18,7 @@ import { useClaudeAgent } from './hooks/useClaudeAgent'
 import { AuthProvider, useAuth } from './hooks/useAuth.jsx'
 import { setAuthErrorHandler, getAgentCoreSessionId } from './utils/authUtils'
 import { createAPIClient } from './api/client'
-import { Loader2, Briefcase } from 'lucide-react'
+import { Loader2, ToolCase } from 'lucide-react'
 
 const SETTINGS_STORAGE_KEY = 'claude-agent-settings'
 const SERVER_DISCONNECTED_KEY = 'claude-agent-server-disconnected'
@@ -829,7 +829,7 @@ function AppContent() {
               onClick={() => setActiveTab('skills')}
               title="Skills"
             >
-              <Briefcase size={16} />
+              <ToolCase size={16} />
             </button>
           </div>
 
