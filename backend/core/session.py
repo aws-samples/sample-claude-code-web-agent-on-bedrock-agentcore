@@ -301,22 +301,40 @@ class AgentSession:
                 connection_type = server_config.get('type', 'stdio')
 
                 if connection_type == 'stdio':
+                    command = server_config.get('command')
+                    args = server_config.get('args', [])
+                    env = server_config.get('env', {})
+
                     mcp_servers[server_name] = {
                         "type": "stdio",
-                        "command": server_config.get('command'),
-                        "args": server_config.get('args', []),
-                        "env": server_config.get('env', {}),
+                        "command": command,
+                        "args": args,
+                        "env": env,
                     }
+
+                    print(f"[Session] Configured MCP server '{server_name}':")
+                    print(f"[Session]   Type: stdio")
+                    print(f"[Session]   Command: {command}")
+                    print(f"[Session]   Args: {args}")
+                    if env:
+                        print(f"[Session]   Env vars: {list(env.keys())}")
+
                 elif connection_type == 'sse':
+                    url = server_config.get('url')
                     mcp_servers[server_name] = {
                         "type": "sse",
-                        "url": server_config.get('url'),
+                        "url": url,
                     }
+                    print(f"[Session] Configured MCP server '{server_name}' (sse): {url}")
+
                 elif connection_type == 'http':
+                    url = server_config.get('url')
                     mcp_servers[server_name] = {
                         "type": "http",
-                        "url": server_config.get('url'),
+                        "url": url,
                     }
+                    print(f"[Session] Configured MCP server '{server_name}' (http): {url}")
+
                 else:
                     print(f"[Session] Warning: Unknown MCP server type '{connection_type}' for '{server_name}'")
 
