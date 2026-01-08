@@ -343,12 +343,14 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
               // Reset text accumulator
               currentTextContent = ''
 
-              // Add tool use message
+              // Add tool use message with full tool info for later use
               setMessages(prev => [...prev, {
                 type: 'tool',
                 toolName: data.tool_name,
                 toolInput: data.tool_input,
-                toolUseId: data.tool_use_id
+                toolUseId: data.tool_use_id,
+                // Store original questions for AskUserQuestion
+                questions: data.tool_name === 'AskUserQuestion' ? data.tool_input.questions : null
               }])
               break
 
@@ -459,16 +461,21 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
   }, [sessionId, addErrorMessage])
 
   // Submit answers to AskUserQuestion
-  const submitQuestionAnswers = useCallback(async (toolUseId, answers) => {
-    if (!sessionId) return
+  const submitQuestionAnswers = useCallback(async (toolUseId, answers, questions) => {
+    if (!sessionId || !apiClientRef.current) return
 
     try {
-      console.log('Submitting question answers:', { toolUseId, answers })
+      console.log('Submitting question answers:', { toolUseId, answers, questions })
 
-      // Send the answers as a user message in JSON format
-      // The format expected by Claude Agent SDK for AskUserQuestion responses
-      const answerMessage = JSON.stringify(answers)
+      // Format the answer content as a plain text message
+      const answerParts = Object.entries(answers).map(([question, answer]) => {
+        return `"${question}"="${answer}"`
+      })
+      const answerMessage = `User has answered your questions: ${answerParts.join(', ')}`
 
+      console.log('Sending answer as plain text message:', answerMessage)
+
+      // Send as a regular text message (not tool_result)
       await sendMessage(answerMessage)
 
       console.log('Question answers submitted successfully')

@@ -341,6 +341,28 @@ class DirectAPIClient {
     return response.json()
   }
 
+  async uploadFile(file, directory) {
+    const authHeaders = await getAuthHeaders()
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('directory', directory)
+
+    const response = await fetch(`${this.baseUrl}/files/upload`, {
+      method: 'POST',
+      headers: {
+        ...authHeaders
+        // Don't set Content-Type - browser will set it with boundary
+      },
+      body: formData
+    })
+    handleFetchResponse(response)
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || 'Failed to upload file')
+    }
+    return response.json()
+  }
+
   async executeShellCommand(command, cwd) {
     const authHeaders = await getAuthHeaders()
     const response = await fetch(`${this.baseUrl}/shell/execute`, {
@@ -1153,6 +1175,38 @@ class InvocationsAPIClient {
     const payload = { path, content }
     if (projectName) payload.project_name = projectName
     return this._invoke('/files/save', 'POST', payload)
+  }
+
+  async uploadFile(file, directory, projectName = null) {
+    const authHeaders = await getAuthHeaders()
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('directory', directory)
+    if (projectName) formData.append('project_name', projectName)
+
+    const headers = {
+      ...authHeaders
+      // Don't set Content-Type - browser will set it with boundary
+    }
+
+    if (this.agentCoreSessionId) {
+      headers['X-Amzn-Bedrock-AgentCore-Runtime-Session-Id'] = this.agentCoreSessionId
+    }
+
+    const response = await fetch(`${this.baseUrl}/files/upload`, {
+      method: 'POST',
+      headers,
+      body: formData
+    })
+
+    handleFetchResponse(response)
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || 'Failed to upload file')
+    }
+
+    return response.json()
   }
 
   async executeShellCommand(command, cwd) {

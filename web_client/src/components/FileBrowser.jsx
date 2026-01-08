@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Folder, File, ChevronRight, ChevronDown, RefreshCw, FolderOpen, Home } from 'lucide-react'
+import { Folder, File, ChevronRight, ChevronDown, RefreshCw, FolderOpen, Home, Upload } from 'lucide-react'
 import { createAPIClient } from '../api/client'
 import { getAgentCoreSessionId } from '../utils/authUtils'
 
@@ -8,8 +8,11 @@ function FileBrowser({ serverUrl, currentPath, workingDirectory, onPathChange, o
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [expandedDirs, setExpandedDirs] = useState(new Set())
+  const [uploading, setUploading] = useState(false)
+  const [uploadSuccess, setUploadSuccess] = useState(null)
   const apiClientRef = useRef(null)
   const previousActiveRef = useRef(false)
+  const fileInputRef = useRef(null)
 
   // Create API client
   useEffect(() => {
@@ -124,15 +127,62 @@ function FileBrowser({ serverUrl, currentPath, workingDirectory, onPathChange, o
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
+  const handleUploadClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelect = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file || !currentPath || !apiClientRef.current) return
+
+    setUploading(true)
+    setError(null)
+    setUploadSuccess(null)
+
+    try {
+      const result = await apiClientRef.current.uploadFile(file, currentPath, currentProject)
+      setUploadSuccess(`File uploaded: ${result.filename} (${formatSize(result.size)})`)
+
+      // Refresh file list
+      await loadFiles(currentPath)
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setUploadSuccess(null), 3000)
+    } catch (err) {
+      console.error('Failed to upload file:', err)
+      setError(err.message || 'Failed to upload file')
+    } finally {
+      setUploading(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
 
   return (
     <div className="file-browser">
+      <input
+        ref={fileInputRef}
+        type="file"
+        onChange={handleFileSelect}
+        style={{ display: 'none' }}
+      />
+
       <div className="file-browser-header">
         <div className="file-browser-title">
           <Folder size={16} />
           <span className="current-path-display" title={currentPath}>{currentPath || '/'}</span>
         </div>
         <div className="file-browser-actions">
+          <button
+            className="btn-icon btn-upload"
+            onClick={handleUploadClick}
+            disabled={loading || uploading || !currentPath}
+            title="Upload file"
+          >
+            <Upload size={14} className={uploading ? 'spinning' : ''} />
+          </button>
           <button
             className="btn-icon btn-refresh"
             onClick={handleRefresh}
@@ -165,6 +215,12 @@ function FileBrowser({ serverUrl, currentPath, workingDirectory, onPathChange, o
       </div>
 
       <div className="file-browser-content">
+        {uploadSuccess && (
+          <div className="file-browser-success">
+            <span>{uploadSuccess}</span>
+          </div>
+        )}
+
         {error && (
           <div className="file-browser-error">
             <span>{error}</span>

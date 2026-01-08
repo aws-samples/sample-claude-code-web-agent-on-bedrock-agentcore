@@ -973,7 +973,8 @@ body {
     gap: 4px;
 }
 
-.btn-refresh {
+.btn-refresh,
+.btn-upload {
     padding: 4px;
     border-radius: 4px;
     border: none;
@@ -983,13 +984,32 @@ body {
     transition: background-color 0.2s;
 }
 
-.btn-refresh:hover:not(:disabled) {
+.btn-refresh:hover:not(:disabled),
+.btn-upload:hover:not(:disabled) {
     background-color: var(--border-color);
 }
 
-.btn-refresh:disabled {
+.btn-upload:hover:not(:disabled) {
+    color: var(--primary-color);
+}
+
+.btn-refresh:disabled,
+.btn-upload:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.file-browser-success {
+    padding: 8px 12px;
+    margin: 8px;
+    border-radius: 6px;
+    background-color: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #22c55e;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .file-browser-path {
@@ -1581,6 +1601,49 @@ body {
 .file-content-binary small {
     font-size: 12px;
     opacity: 0.7;
+}
+
+/* Image preview styles */
+.file-image-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background-color: var(--bg-primary);
+    border-radius: 8px;
+    overflow: auto;
+    max-height: 600px;
+}
+
+.file-image-preview img {
+    max-width: 100%;
+    max-height: 600px;
+    height: auto;
+    object-fit: contain;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.file-image-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.file-image-error svg {
+    opacity: 0.5;
+    color: var(--danger-color);
+}
+
+.file-image-error p {
+    font-weight: 500;
+    margin: 0;
 }
 
 /* Responsive adjustments for sidebar */
@@ -3421,4 +3484,129 @@ body {
   font-size: 14px;
   color: var(--text-primary);
   font-weight: 500;
+}
+
+/* ===============================================
+   Todo List Styles (TodoWrite tool)
+   =============================================== */
+
+.todo-list-container {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin: 16px 0;
+  background-color: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.todo-list-header {
+  padding: 12px 16px;
+  background-color: rgba(59, 130, 246, 0.1);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.todo-list-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.todo-list {
+  padding: 8px;
+}
+
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  margin: 4px 0;
+  border-radius: 6px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.todo-item.completed {
+  background-color: rgba(34, 197, 94, 0.05);
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.todo-item.in-progress {
+  background-color: rgba(59, 130, 246, 0.05);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.todo-item.pending {
+  background-color: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.todo-icon {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.status-icon.completed {
+  color: #22c55e;
+}
+
+.status-icon.in-progress {
+  color: #3b82f6;
+  animation: spin 2s linear infinite;
+}
+
+.status-icon.pending {
+  color: var(--text-secondary);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.todo-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.todo-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  word-wrap: break-word;
+}
+
+.todo-item.completed .todo-text {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+}
+
+.todo-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.todo-item.completed .todo-status {
+  color: #22c55e;
+}
+
+.todo-item.in-progress .todo-status {
+  color: #3b82f6;
+}
+
+.todo-list-footer {
+  padding: 10px 16px;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-top: 1px solid var(--border-color);
+}
+
+.todo-count {
+  font-size: 12px;
+  color: var(--text-secondary);
 }

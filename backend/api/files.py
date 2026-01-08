@@ -9,7 +9,8 @@ import mimetypes
 from pathlib import Path
 from typing import Optional, List
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 
@@ -50,6 +51,14 @@ class SaveFileResponse(BaseModel):
     """Response for saving file."""
     success: bool
     path: str
+    size: int
+
+
+class UploadFileResponse(BaseModel):
+    """Response for uploading file."""
+    success: bool
+    path: str
+    filename: str
     size: int
 
 
@@ -225,3 +234,95 @@ async def save_file(request: SaveFileRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+
+
+@router.post("/files/upload", response_model=UploadFileResponse)
+async def upload_file(
+    file: UploadFile = File(...),
+    directory: str = Form(...)
+):
+    """
+    Upload a file to the specified directory.
+
+    Args:
+        file: The uploaded file
+        directory: Target directory path
+
+    Returns:
+        Upload confirmation with file path and size
+    """
+    try:
+        # Resolve the target directory
+        target_dir = Path(directory).expanduser().resolve()
+
+        # Create directory if it doesn't exist
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        if not target_dir.is_dir():
+            raise HTTPException(status_code=400, detail="Target path is not a directory")
+
+        # Construct target file path
+        target_path = target_dir / file.filename
+
+        # Check if file already exists
+        if target_path.exists():
+            raise HTTPException(status_code=409, detail=f"File already exists: {file.filename}")
+
+        # Write uploaded file
+        content = await file.read()
+        with open(target_path, 'wb') as f:
+            f.write(content)
+
+        # Get file stats
+        stat = target_path.stat()
+
+        return UploadFileResponse(
+            success=True,
+            path=str(target_path),
+            filename=file.filename,
+            size=stat.st_size
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
+
+
+@router.get("/files/raw")
+async def get_raw_file(path: str = Query(...)):
+    """
+    Get raw file content for download or preview (e.g., images).
+
+    Args:
+        path: File path to read
+
+    Returns:
+        Raw file content with appropriate media type
+    """
+    try:
+        # Resolve the path
+        target_path = Path(path).expanduser().resolve()
+
+        if not target_path.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+
+        if target_path.is_dir():
+            raise HTTPException(status_code=400, detail="Path is a directory, not a file")
+
+        # Determine MIME type
+        mime_type, _ = mimetypes.guess_type(str(target_path))
+        if not mime_type:
+            mime_type = 'application/octet-stream'
+
+        # Return file response
+        return FileResponse(
+            path=str(target_path),
+            media_type=mime_type,
+            filename=target_path.name
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")

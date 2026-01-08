@@ -37,18 +37,18 @@ function QuestionCard({ questions, onSubmitAnswers }) {
     questions.forEach((question, index) => {
       const answer = answers[index]
       if (answer) {
-        // Use header as key for the answer
+        // Use question text as key for the answer (matching SDK format)
         if (question.multiSelect) {
           // For multi-select, join with comma
-          formattedAnswers[question.header] = Array.isArray(answer) ? answer.join(', ') : answer
+          formattedAnswers[question.question] = Array.isArray(answer) ? answer.join(', ') : answer
         } else {
-          formattedAnswers[question.header] = answer
+          formattedAnswers[question.question] = answer
         }
       }
     })
 
     setSubmitted(true)
-    onSubmitAnswers(formattedAnswers)
+    onSubmitAnswers(formattedAnswers, questions)
   }
 
   const canSubmit = () => {

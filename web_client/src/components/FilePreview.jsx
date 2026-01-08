@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { File, X, FileText, Calendar, HardDrive, AlertCircle, Loader2, Edit3, Save, Download, XCircle } from 'lucide-react'
+import { File, X, FileText, Calendar, HardDrive, AlertCircle, Loader2, Edit3, Save, Download, XCircle, Image as ImageIcon } from 'lucide-react'
 import { createAPIClient } from '../api/client'
 import { getAgentCoreSessionId } from '../utils/authUtils'
 import hljs from 'highlight.js/lib/core'
@@ -280,6 +280,22 @@ function FilePreview({ serverUrl, filePath, onClose, disabled, currentProject })
     return date.toLocaleString()
   }
 
+  const isImageFile = (filename, mimeType) => {
+    if (!filename) return false
+    const ext = filename.split('.').pop()?.toLowerCase()
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']
+    const isImageExt = imageExtensions.includes(ext)
+    const isImageMime = mimeType && mimeType.startsWith('image/')
+    return isImageExt || isImageMime
+  }
+
+  const getImageUrl = (path) => {
+    if (!path || !serverUrl) return null
+    // Encode the path for URL
+    const encodedPath = encodeURIComponent(path)
+    return `${serverUrl}/files/raw?path=${encodedPath}`
+  }
+
   if (!filePath) {
     return (
       <div className="file-preview">
@@ -421,7 +437,27 @@ function FilePreview({ serverUrl, filePath, onClose, disabled, currentProject })
             </div>
           )}
 
-          {!fileInfo.is_text && (
+          {!fileInfo.is_text && isImageFile(fileInfo.name, fileInfo.mime_type) && (
+            <div className="file-content-section">
+              <h3>Image Preview</h3>
+              <div className="file-image-preview">
+                <img
+                  src={getImageUrl(fileInfo.path)}
+                  alt={fileInfo.name}
+                  onError={(e) => {
+                    e.target.style.display = 'none'
+                    e.target.nextSibling.style.display = 'block'
+                  }}
+                />
+                <div className="file-image-error" style={{ display: 'none' }}>
+                  <AlertCircle size={32} />
+                  <p>Failed to load image</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!fileInfo.is_text && !isImageFile(fileInfo.name, fileInfo.mime_type) && (
             <div className="file-content-section">
               <div className="file-content-binary">
                 <File size={48} />

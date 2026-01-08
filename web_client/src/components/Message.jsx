@@ -1,5 +1,6 @@
 import { Wrench, CheckCircle, XCircle, ShieldAlert, Zap } from 'lucide-react'
 import QuestionCard from './QuestionCard'
+import TodoList from './TodoList'
 
 function Message({ message, onPermissionRespond, onQuestionAnswer }) {
   const { type, role, content, toolName, toolInput, toolUseId, isError, permission } = message
@@ -50,6 +51,15 @@ function Message({ message, onPermissionRespond, onQuestionAnswer }) {
             questions={toolInput.questions}
             onSubmitAnswers={(answers) => onQuestionAnswer(toolUseId, answers, toolInput.questions)}
           />
+        </div>
+      )
+    }
+
+    // Special handling for TodoWrite tool
+    if (toolName === 'TodoWrite' && toolInput && toolInput.todos) {
+      return (
+        <div className="message tool-use tool-todo">
+          <TodoList todos={toolInput.todos} />
         </div>
       )
     }

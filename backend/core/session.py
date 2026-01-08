@@ -26,7 +26,6 @@ from claude_agent_sdk import (
     ResultMessage,
     TextBlock,
     ToolPermissionContext,
-    ToolResultBlock,
     ToolUseBlock,
     UserMessage,
 )
@@ -394,42 +393,47 @@ class AgentSession:
         self.last_activity = datetime.now(timezone.utc)
         self.message_count += 1
 
-        # Send message - SDK accepts Union[str, UserMessage]
-        # If message is a dict with 'role' and 'content', construct UserMessage object
+        # Send message - SDK query() accepts Union[str, AsyncIterable[dict]]
+        # For AskUserQuestion answers, we now send them as plain text messages
         if isinstance(message, dict):
-            # Convert dict to UserMessage object with proper ContentBlock types
-            content_blocks = []
-            if isinstance(message.get('content'), list):
-                for block in message['content']:
-                    if isinstance(block, dict) and block.get('type') == 'tool_result':
-                        # Construct ToolResultBlock
-                        content_blocks.append(
-                            ToolResultBlock(
-                                tool_use_id=block['tool_use_id'],
-                                content=block.get('content'),
-                                is_error=block.get('is_error')
-                            )
-                        )
-                    else:
-                        # Keep other blocks as-is (shouldn't happen for tool_result case)
-                        content_blocks.append(block)
-                message = UserMessage(content=content_blocks)
-            else:
-                # Simple string content
-                message = UserMessage(content=message.get('content', ''))
+            # Structured message format - convert to CLI wire format
+            # Format: {"type": "user", "message": {...}, "parent_tool_use_id": None, "session_id": "..."}
+            wire_message = {
+                "type": "user",
+                "message": message,  # The message dict already has role and content
+                "parent_tool_use_id": None,
+                "session_id": "default"
+            }
 
-        await self.client.query(message)
+            print(f"[Session] send_message: Sending structured message to SDK (session: {self.session_id})")
+            print(f"[Session] send_message: Wire message: {wire_message}")
+
+            # Create an async iterable that yields this single message
+            async def message_stream():
+                yield wire_message
+
+            await self.client.query(message_stream())
+            print(f"[Session] send_message: SDK query() call completed")
+        else:
+            # Simple string message (including AskUserQuestion answers)
+            print(f"[Session] send_message: Sending string message to SDK (session: {self.session_id}): {message[:100]}...")
+            await self.client.query(message)
+            print(f"[Session] send_message: SDK query() call completed")
 
         # Collect response
         messages = []
         cost_usd = None
         num_turns = None
 
+        print(f"[Session] send_message: Starting to receive response...")
         async for msg in self.client.receive_response():
+            print(f"[Session] send_message: Received message type: {type(msg).__name__}")
             if isinstance(msg, UserMessage):
                 # Skip user messages in response
+                print(f"[Session] send_message: Skipping UserMessage")
                 pass
             elif isinstance(msg, AssistantMessage):
+                print(f"[Session] send_message: Processing AssistantMessage with {len(msg.content)} blocks")
                 for block in msg.content:
                     if isinstance(block, TextBlock):
                         messages.append(MessageBlock(type="text", content=block.text))
@@ -442,6 +446,7 @@ class AgentSession:
                             )
                         )
             elif isinstance(msg, ResultMessage):
+                print(f"[Session] send_message: Received ResultMessage")
                 cost_usd = msg.total_cost_usd
                 num_turns = msg.num_turns
 
@@ -478,41 +483,46 @@ class AgentSession:
             "message": message
         }
 
-        # Send message - SDK accepts Union[str, UserMessage]
-        # If message is a dict with 'role' and 'content', construct UserMessage object
+        # Send message - SDK query() accepts Union[str, AsyncIterable[dict]]
+        # For AskUserQuestion answers, we now send them as plain text messages
         if isinstance(message, dict):
-            # Convert dict to UserMessage object with proper ContentBlock types
-            content_blocks = []
-            if isinstance(message.get('content'), list):
-                for block in message['content']:
-                    if isinstance(block, dict) and block.get('type') == 'tool_result':
-                        # Construct ToolResultBlock
-                        content_blocks.append(
-                            ToolResultBlock(
-                                tool_use_id=block['tool_use_id'],
-                                content=block.get('content'),
-                                is_error=block.get('is_error')
-                            )
-                        )
-                    else:
-                        # Keep other blocks as-is (shouldn't happen for tool_result case)
-                        content_blocks.append(block)
-                message = UserMessage(content=content_blocks)
-            else:
-                # Simple string content
-                message = UserMessage(content=message.get('content', ''))
+            # Structured message format - convert to CLI wire format
+            # Format: {"type": "user", "message": {...}, "parent_tool_use_id": None, "session_id": "..."}
+            wire_message = {
+                "type": "user",
+                "message": message,  # The message dict already has role and content
+                "parent_tool_use_id": None,
+                "session_id": "default"
+            }
 
-        await self.client.query(message)
+            print(f"[Session] send_message_stream: Sending structured message to SDK (session: {self.session_id})")
+            print(f"[Session] send_message_stream: Wire message: {wire_message}")
+
+            # Create an async iterable that yields this single message
+            async def message_stream():
+                yield wire_message
+
+            await self.client.query(message_stream())
+            print(f"[Session] send_message_stream: SDK query() call completed")
+        else:
+            # Simple string message (including AskUserQuestion answers)
+            print(f"[Session] send_message_stream: Sending string message to SDK (session: {self.session_id}): {message[:100]}...")
+            await self.client.query(message)
+            print(f"[Session] send_message_stream: SDK query() call completed")
 
         # Track last reported permission to avoid duplicates
         last_permission_id = None
 
         # Stream response
+        print(f"[Session] send_message_stream: Starting to stream response...")
         async for msg in self.client.receive_response():
+            print(f"[Session] send_message_stream: Received message type: {type(msg).__name__}")
+
             # Check for pending permission and send event if new
             if self.pending_permission:
                 current_permission_id = self.pending_permission.get("request_id")
                 if current_permission_id != last_permission_id:
+                    print(f"[Session] send_message_stream: Sending permission event")
                     yield {
                         "type": "permission",
                         "permission": self.pending_permission
@@ -521,12 +531,14 @@ class AgentSession:
 
             if isinstance(msg, UserMessage):
                 # User message event
+                print(f"[Session] send_message_stream: Sending user_message event")
                 yield {
                     "type": "user_message",
                     "content": msg.content
                 }
             elif isinstance(msg, AssistantMessage):
                 # Assistant message with content blocks
+                print(f"[Session] send_message_stream: Processing AssistantMessage with {len(msg.content)} blocks")
                 for block in msg.content:
                     if isinstance(block, TextBlock):
                         yield {
@@ -541,6 +553,7 @@ class AgentSession:
                             "tool_use_id": block.id
                         }
             elif isinstance(msg, ResultMessage):
+                print(f"[Session] send_message_stream: Received ResultMessage")
                 # Final result with metadata
                 # Extract real session_id from SDK's ResultMessage
                 real_session_id = msg.session_id if hasattr(msg, 'session_id') else self.session_id
