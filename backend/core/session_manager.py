@@ -434,38 +434,65 @@ class SessionManager:
         Raises:
             HTTPException: If session not found
         """
+        print(f"[SessionManager] ========== Session Config Check ==========")
+        print(f"[SessionManager] Session ID: {session_id}")
+        print(f"[SessionManager] Requested model: {model}")
+        print(f"[SessionManager] Requested mcp_server_ids: {mcp_server_ids}")
+
         # Get the session (may auto-resume if not in memory)
         session = await self.get_session(session_id)
+
+        print(f"[SessionManager] Current session model: {session.model}")
+        print(f"[SessionManager] Current session mcp_server_ids: {session.mcp_server_ids}")
 
         needs_reconnect = False
         config_changes = []
 
         # Check if model needs to be updated
-        if model and model != session.model:
-            config_changes.append(f"model: {session.model} → {model}")
-            session.model = model
-            needs_reconnect = True
+        if model:
+            if model != session.model:
+                print(f"[SessionManager] ✗ Model mismatch detected")
+                config_changes.append(f"model: {session.model} → {model}")
+                session.model = model
+                needs_reconnect = True
+            else:
+                print(f"[SessionManager] ✓ Model matches (no change needed)")
+        else:
+            print(f"[SessionManager] ○ No model specified in request (keeping current)")
 
         # Check if MCP servers need to be updated
-        if mcp_server_ids is not None and mcp_server_ids != session.mcp_server_ids:
-            config_changes.append(f"mcp_servers: {session.mcp_server_ids} → {mcp_server_ids}")
-            session.mcp_server_ids = mcp_server_ids
-            needs_reconnect = True
+        if mcp_server_ids is not None:
+            if mcp_server_ids != session.mcp_server_ids:
+                print(f"[SessionManager] ✗ MCP servers mismatch detected")
+                config_changes.append(f"mcp_servers: {session.mcp_server_ids} → {mcp_server_ids}")
+                session.mcp_server_ids = mcp_server_ids
+                needs_reconnect = True
+            else:
+                print(f"[SessionManager] ✓ MCP servers match (no change needed)")
+        else:
+            print(f"[SessionManager] ○ No MCP servers specified in request (keeping current)")
 
         # Reconnect if configuration changed
         if needs_reconnect:
-            print(f"[SessionManager] Configuration changed for session {session_id}:")
+            print(f"[SessionManager] ⚠️  Configuration changed - reconnection required")
+            print(f"[SessionManager] Changes:")
             for change in config_changes:
                 print(f"[SessionManager]   - {change}")
-            print(f"[SessionManager] Reconnecting session with new configuration...")
+            print(f"[SessionManager] Disconnecting old client...")
 
             # Disconnect old client
             await session.disconnect()
 
+            print(f"[SessionManager] Reconnecting with new configuration...")
+
             # Reconnect with new configuration
             await session.connect(resume_session_id=session_id)
 
-            print(f"[SessionManager] Session {session_id} reconnected successfully")
+            print(f"[SessionManager] ✓ Session {session_id} reconnected successfully")
+        else:
+            print(f"[SessionManager] ✓ Configuration unchanged - using existing session")
+
+        print(f"[SessionManager] ===============================================")
 
         return session
 
