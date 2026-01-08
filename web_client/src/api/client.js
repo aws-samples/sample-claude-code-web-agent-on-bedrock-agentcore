@@ -262,23 +262,6 @@ class DirectAPIClient {
     return response.json()
   }
 
-  async updateMcpServers(sessionId, mcpServerIds) {
-    const authHeaders = await getAuthHeaders()
-    const response = await fetch(`${this.baseUrl}/sessions/${sessionId}/mcp-servers`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders
-      },
-      body: JSON.stringify({ mcp_server_ids: mcpServerIds })
-    })
-    handleFetchResponse(response)
-    if (!response.ok) {
-      throw new Error('Failed to update MCP servers')
-    }
-    return response.json()
-  }
-
   async interruptSession(sessionId) {
     const authHeaders = await getAuthHeaders()
     const response = await fetch(`${this.baseUrl}/sessions/${sessionId}/interrupt`, {
@@ -1231,15 +1214,6 @@ class InvocationsAPIClient {
       '/sessions/{session_id}/model',
       'POST',
       { model },
-      { session_id: sessionId }
-    )
-  }
-
-  async updateMcpServers(sessionId, mcpServerIds) {
-    return this._invoke(
-      '/sessions/{session_id}/mcp-servers',
-      'POST',
-      { mcp_server_ids: mcpServerIds },
       { session_id: sessionId }
     )
   }

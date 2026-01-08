@@ -13,8 +13,6 @@ from .schemas import (
     SessionStatus,
     SetModelRequest,
     SetPermissionModeRequest,
-    UpdateMCPServersRequest,
-    UpdateMCPServersResponse,
 )
 
 __all__ = [
@@ -30,6 +28,4 @@ __all__ = [
     "SessionStatus",
     "SetModelRequest",
     "SetPermissionModeRequest",
-    "UpdateMCPServersRequest",
-    "UpdateMCPServersResponse",
 ]

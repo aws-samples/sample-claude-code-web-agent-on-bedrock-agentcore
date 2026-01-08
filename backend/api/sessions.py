@@ -17,8 +17,6 @@ from ..models import (
     CreateSessionRequest,
     CreateSessionResponse,
     ListSessionsResponse,
-    UpdateMCPServersRequest,
-    UpdateMCPServersResponse,
 )
 
 router = APIRouter()
@@ -303,32 +301,6 @@ async def get_server_info(session_id: str):
     session = await manager.get_session(session_id)
     info = await session.get_server_info()
     return info
-
-
-@router.post("/sessions/{session_id}/mcp-servers", response_model=UpdateMCPServersResponse)
-async def update_mcp_servers(session_id: str, request: UpdateMCPServersRequest):
-    """
-    Update MCP servers for an active session by recreating the SDK client.
-
-    This allows dynamic MCP server selection during a session, similar to
-    how the model can be changed dynamically. The SDK client is recreated
-    with the new MCP server configuration.
-
-    Args:
-        session_id: The session ID
-        request: MCP server update request
-
-    Returns:
-        Success message with new MCP server list
-    """
-    manager = get_session_manager()
-    await manager.update_mcp_servers(session_id, request.mcp_server_ids)
-    return UpdateMCPServersResponse(
-        status="ok",
-        session_id=session_id,
-        mcp_server_ids=request.mcp_server_ids,
-        message=f"Updated MCP servers: {', '.join(request.mcp_server_ids) if request.mcp_server_ids else 'None'}"
-    )
 
 
 @router.delete("/sessions/{session_id}")

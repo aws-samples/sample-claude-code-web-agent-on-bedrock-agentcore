@@ -411,22 +411,6 @@ async def invocations(http_request: Request, request: dict[str, Any]):
 
         elif (
             path.startswith("/sessions/")
-            and path.endswith("/mcp-servers")
-            and method == "POST"
-        ):
-            # Update MCP servers
-            session_id = path_params.get("session_id")
-            if not session_id:
-                raise HTTPException(
-                    status_code=400, detail="Missing session_id in path_params"
-                )
-            from ..models import UpdateMCPServersRequest
-            from .sessions import update_mcp_servers
-            req = UpdateMCPServersRequest(**payload)
-            return await update_mcp_servers(session_id, req)
-
-        elif (
-            path.startswith("/sessions/")
             and path.endswith("/interrupt")
             and method == "POST"
         ):

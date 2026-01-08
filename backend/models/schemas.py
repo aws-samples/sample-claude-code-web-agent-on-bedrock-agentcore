@@ -195,21 +195,6 @@ class CloneGitRepositoryResponse(BaseModel):
     output: Optional[str] = None
 
 
-class UpdateMCPServersRequest(BaseModel):
-    """Request to update MCP servers for an active session."""
-
-    mcp_server_ids: list[str]
-
-
-class UpdateMCPServersResponse(BaseModel):
-    """Response after updating MCP servers."""
-
-    status: str
-    session_id: str
-    mcp_server_ids: list[str]
-    message: str
-
-
 class ListProjectsResponse(BaseModel):
     """Response containing list of projects."""
 

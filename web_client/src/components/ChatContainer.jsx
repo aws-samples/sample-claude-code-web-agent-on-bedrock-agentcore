@@ -140,30 +140,10 @@ function ChatContainer({
     }
   }
 
-  const handleMcpServersChange = async (newSelected) => {
-    if (!sessionId) {
-      // No active session, just update local state
-      onMcpServersChange(newSelected)
-      return
-    }
-
-    try {
-      // Update MCP servers on server by recreating SDK client
-      const { createAPIClient } = await import('../api/client')
-      const { getAgentCoreSessionId } = await import('../utils/authUtils')
-      const agentCoreSessionId = await getAgentCoreSessionId(currentProject)
-      const apiClient = createAPIClient(serverUrl, agentCoreSessionId)
-
-      await apiClient.updateMcpServers(sessionId, newSelected)
-
-      // Update local state after successful server update
-      onMcpServersChange(newSelected)
-
-      console.log(`✅ MCP servers updated dynamically: ${newSelected.join(', ')}`)
-    } catch (error) {
-      console.error('Failed to update MCP servers:', error)
-      alert(`Failed to update MCP servers: ${error.message}`)
-    }
+  const handleMcpServersChange = (newSelected) => {
+    // Update local state only - MCP servers will be sent with next message
+    onMcpServersChange(newSelected)
+    console.log(`✅ MCP servers selection updated: ${newSelected.join(', ')}`)
   }
 
   // Handle input area resize
