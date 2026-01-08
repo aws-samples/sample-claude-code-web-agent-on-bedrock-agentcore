@@ -66,6 +66,9 @@ function AppContent() {
   // Separate browsing path from configured working directory
   const [currentBrowsePath, setCurrentBrowsePath] = useState(settings.cwd)
 
+  // MCP servers selection state
+  const [selectedMcpServers, setSelectedMcpServers] = useState([])
+
   // File preview state
   const [previewFilePath, setPreviewFilePath] = useState(null)
 
@@ -146,7 +149,7 @@ function AppContent() {
     loadSession,
     retrySession,
     interruptSession
-  } = useClaudeAgent(settings.serverUrl, user?.userId, currentProject, serverDisconnected, handleMessagesChanged)
+  } = useClaudeAgent(settings.serverUrl, user?.userId, currentProject, serverDisconnected, handleMessagesChanged, selectedMcpServers)
 
   // Save settings to localStorage whenever they change
   useEffect(() => {
@@ -921,6 +924,10 @@ function AppContent() {
               currentModel={settings.model}
               onModelChange={handleModelChange}
               onInterrupt={interruptSession}
+              serverUrl={settings.serverUrl}
+              currentProject={currentProject}
+              selectedMcpServers={selectedMcpServers}
+              onMcpServersChange={setSelectedMcpServers}
             />
           )}
         </main>

@@ -21,6 +21,7 @@ class CreateSessionRequest(BaseModel):
     ] = None  # Background model for agents (sets ANTHROPIC_DEFAULT_HAIKU_MODEL)
     enable_proxy: bool = False  # Enable LiteLLM proxy mode
     cwd: Optional[str] = None  # Working directory for the session
+    mcp_server_ids: Optional[list[str]] = None  # List of MCP server names to enable
 
 
 class CreateSessionResponse(BaseModel):

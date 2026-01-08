@@ -192,6 +192,7 @@ class SessionManager:
         enable_proxy: bool = False,
         server_port: int = 8080,
         cwd: Optional[str] = None,
+        mcp_server_ids: Optional[list[str]] = None,
     ) -> str:
         """
         Create a new session or resume an existing one.
@@ -204,6 +205,7 @@ class SessionManager:
             enable_proxy: Enable LiteLLM proxy mode
             server_port: Server port for proxy mode
             cwd: Working directory for the session
+            mcp_server_ids: List of MCP server names to enable
 
         Returns:
             The session ID (new or resumed)
@@ -221,6 +223,7 @@ class SessionManager:
             enable_proxy,
             server_port,
             cwd,
+            mcp_server_ids,
         )
         await session.connect(resume_session_id)
 

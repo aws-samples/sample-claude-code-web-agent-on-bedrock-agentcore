@@ -3589,6 +3589,130 @@ body {
 }
 
 /* ===============================================
+   MCP Selector Styles (In Chat)
+   =============================================== */
+
+.session-selectors {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mcp-selector-compact {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.mcp-selector-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mcp-selector-toggle:hover:not(:disabled) {
+  background: var(--bg-color);
+  border-color: var(--primary-color);
+}
+
+.mcp-selector-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mcp-selector-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 8px;
+  min-width: 280px;
+  max-width: 400px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.mcp-selector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.mcp-selector-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.mcp-selector-close:hover {
+  background: var(--bg-color);
+  color: var(--text-primary);
+}
+
+.mcp-selector-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.mcp-selector-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.mcp-selector-item:hover {
+  background: var(--bg-color);
+}
+
+.mcp-selector-item input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.mcp-selector-item .mcp-server-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.mcp-selector-item .mcp-server-type-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  color: var(--text-secondary);
+}
+
+/* ===============================================
    Question Card Styles (AskUserQuestion)
    =============================================== */
 

@@ -12,7 +12,7 @@ const formatModel = (model) => {
     .replace('claude-3-opus-', 'opus-')
 }
 
-export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userId = null, projectName = null, disabled = false, onMessagesChanged = null) {
+export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userId = null, projectName = null, disabled = false, onMessagesChanged = null, selectedMcpServers = []) {
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [sessionId, setSessionId] = useState(null)
@@ -31,11 +31,17 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
   const sessionErrorCountRef = useRef(0) // Track consecutive session errors
   const MAX_SESSION_ERRORS = 10 // Stop after 10 consecutive errors
   const onMessagesChangedRef = useRef(onMessagesChanged) // Callback for messages change
+  const selectedMcpServersRef = useRef(selectedMcpServers) // MCP servers selection
 
   // Update callback ref when it changes
   useEffect(() => {
     onMessagesChangedRef.current = onMessagesChanged
   }, [onMessagesChanged])
+
+  // Update MCP servers ref when it changes
+  useEffect(() => {
+    selectedMcpServersRef.current = selectedMcpServers
+  }, [selectedMcpServers])
 
   // Initialize API client when userId or projectName changes
   useEffect(() => {
@@ -200,6 +206,9 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
       if (config.cwd.trim()) {
         payload.cwd = config.cwd.trim()
       }
+      if (selectedMcpServersRef.current && selectedMcpServersRef.current.length > 0) {
+        payload.mcp_server_ids = selectedMcpServersRef.current
+      }
 
       const data = await apiClientRef.current.createSession(payload)
       setSessionId(data.session_id)
@@ -253,6 +262,9 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
       }
       if (config.cwd.trim()) {
         payload.cwd = config.cwd.trim()
+      }
+      if (selectedMcpServersRef.current && selectedMcpServersRef.current.length > 0) {
+        payload.mcp_server_ids = selectedMcpServersRef.current
       }
 
       const data = await apiClientRef.current.createSession(payload)
@@ -550,6 +562,9 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
         // Use the session's original cwd (from history) or fall back to config.cwd
         if (sessionCwd && sessionCwd.trim()) {
           payload.cwd = sessionCwd.trim()
+        }
+        if (selectedMcpServersRef.current && selectedMcpServersRef.current.length > 0) {
+          payload.mcp_server_ids = selectedMcpServersRef.current
         }
 
         const createData = await apiClientRef.current.createSession(payload)

@@ -49,6 +49,7 @@ async def create_session(request: CreateSessionRequest):
         enable_proxy=request.enable_proxy,
         server_port=8080,  # Using hardcoded port from uvicorn.run
         cwd=request.cwd,
+        mcp_server_ids=request.mcp_server_ids,
     )
 
     # Return internal session ID (UUID for new sessions, actual ID for resumed)

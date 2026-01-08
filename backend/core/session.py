@@ -75,6 +75,7 @@ class AgentSession:
         enable_proxy: bool = False,
         server_port: int = 8080,
         cwd: Optional[str] = None,
+        mcp_server_ids: Optional[list[str]] = None,
     ):
         """
         Initialize an agent session.
@@ -87,6 +88,7 @@ class AgentSession:
             enable_proxy: Enable LiteLLM proxy mode (sets ANTHROPIC_BASE_URL)
             server_port: Server port for proxy mode (default: 8000)
             cwd: Working directory for the session
+            mcp_server_ids: List of MCP server names to enable
         """
         self.session_id = session_id
         self.user_id = user_id
@@ -111,6 +113,9 @@ class AgentSession:
         # Proxy configuration
         self.enable_proxy = enable_proxy
         self.server_port = server_port
+
+        # MCP servers configuration
+        self.mcp_server_ids = mcp_server_ids or []
 
         # Server info cache
         self.server_info: Optional[dict[str, Any]] = None
@@ -225,6 +230,17 @@ class AgentSession:
         else:
             print(f"[Session] No custom environment variables")
 
+        # Load MCP servers if specified
+        mcp_servers = {}
+        if self.mcp_server_ids:
+            print(f"[Session] Loading MCP servers: {self.mcp_server_ids}")
+            mcp_servers = await self._load_mcp_servers()
+            if mcp_servers:
+                options_dict["mcp_servers"] = mcp_servers
+                print(f"[Session] Loaded {len(mcp_servers)} MCP server(s)")
+            else:
+                print(f"[Session] No MCP servers loaded (config not found or invalid)")
+
         # Print SDK options for debugging
         print(f"[Session] ========== SDK Connection Options ==========")
         print(f"[Session] allowed_tools: {len(options_dict.get('allowed_tools', []))} tools")
@@ -233,6 +249,8 @@ class AgentSession:
         print(f"[Session] resume: {options_dict.get('resume', 'None (new session)')}")
         print(f"[Session] permission_mode: {options_dict.get('permission_mode', 'default')}")
         print(f"[Session] max_turns: {options_dict.get('max_turns', 0)}")
+        if mcp_servers:
+            print(f"[Session] mcp_servers: {list(mcp_servers.keys())}")
         if env_vars:
             print(f"[Session] env vars: {list(env_vars.keys())}")
         print(f"[Session] ===============================================")
@@ -248,6 +266,68 @@ class AgentSession:
         except (CLINotFoundError, CLIConnectionError) as e:
             self.status = "error"
             raise HTTPException(status_code=500, detail=f"Failed to connect: {str(e)}")
+
+    async def _load_mcp_servers(self) -> dict[str, Any]:
+        """
+        Load MCP servers configuration from /workspace/.mcp.json.
+
+        Returns:
+            Dictionary of MCP server configurations keyed by server name
+        """
+        import json
+        from pathlib import Path
+
+        mcp_config_path = "/workspace/.mcp.json"
+        config_file = Path(mcp_config_path)
+
+        if not config_file.exists():
+            print(f"[Session] MCP config file not found: {mcp_config_path}")
+            return {}
+
+        try:
+            with open(config_file, 'r') as f:
+                config_data = json.load(f)
+
+            all_servers = config_data.get('mcpServers', {})
+            mcp_servers = {}
+
+            # Build MCP servers dict for selected server IDs
+            for server_name in self.mcp_server_ids:
+                if server_name not in all_servers:
+                    print(f"[Session] Warning: MCP server '{server_name}' not found in config")
+                    continue
+
+                server_config = all_servers[server_name]
+                connection_type = server_config.get('type', 'stdio')
+
+                if connection_type == 'stdio':
+                    mcp_servers[server_name] = {
+                        "type": "stdio",
+                        "command": server_config.get('command'),
+                        "args": server_config.get('args', []),
+                        "env": server_config.get('env', {}),
+                    }
+                elif connection_type == 'sse':
+                    mcp_servers[server_name] = {
+                        "type": "sse",
+                        "url": server_config.get('url'),
+                    }
+                elif connection_type == 'http':
+                    mcp_servers[server_name] = {
+                        "type": "http",
+                        "url": server_config.get('url'),
+                    }
+                else:
+                    print(f"[Session] Warning: Unknown MCP server type '{connection_type}' for '{server_name}'")
+
+            return mcp_servers
+
+        except json.JSONDecodeError as e:
+            print(f"[Session] Error: Invalid JSON in MCP config file: {str(e)}")
+            return {}
+        except Exception as e:
+            print(f"[Session] Error loading MCP servers: {str(e)}")
+            return {}
 
     async def disconnect(self):
         """Disconnect the SDK client and cleanup."""

@@ -14,7 +14,11 @@ function ChatContainer({
   onRetrySession,
   currentModel,
   onModelChange,
-  onInterrupt
+  onInterrupt,
+  serverUrl,
+  currentProject,
+  selectedMcpServers,
+  onMcpServersChange
 }) {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -23,6 +27,8 @@ function ChatContainer({
   const [inputHeight, setInputHeight] = useState(120) // Default 120px (3 rows * ~40px)
   const [isResizingInput, setIsResizingInput] = useState(false)
   const [isRunning, setIsRunning] = useState(false) // Track if assistant is currently responding
+  const [availableMcpServers, setAvailableMcpServers] = useState({})
+  const [showMcpSelector, setShowMcpSelector] = useState(false)
   const messagesEndRef = useRef(null)
 
   // Get available models from environment or use defaults
@@ -40,6 +46,27 @@ function ChatContainer({
       setSelectedModel(currentModel)
     }
   }, [currentModel])
+
+  // Load available MCP servers
+  useEffect(() => {
+    const loadMcpServers = async () => {
+      if (!serverUrl) return
+
+      try {
+        const { createAPIClient } = await import('../api/client')
+        const { getAgentCoreSessionId } = await import('../utils/authUtils')
+        const agentCoreSessionId = await getAgentCoreSessionId(currentProject)
+        const apiClient = createAPIClient(serverUrl, agentCoreSessionId)
+
+        const data = await apiClient.listMCPServers()
+        setAvailableMcpServers(data.servers || {})
+      } catch (err) {
+        console.error('Failed to load MCP servers:', err)
+      }
+    }
+
+    loadMcpServers()
+  }, [serverUrl, currentProject])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -217,29 +244,84 @@ function ChatContainer({
           <div className="resize-handle-bar-horizontal" />
         </div>
 
-        {/* Model Selector and Status */}
-        <div className="model-selector-compact">
-          <label htmlFor="model-select" className="model-selector-label">
-            Model:
-          </label>
-          <select
-            id="model-select"
-            value={selectedModel}
-            onChange={handleModelChange}
-            className="model-selector-dropdown"
-            disabled={sending || isRunning}
-          >
-            {availableModels.map(model => (
-              <option key={model} value={model}>
-                {model}
-              </option>
-            ))}
-          </select>
-          {isRunning && (
-            <span className="running-indicator">
-              <Loader2 size={14} className="spinning" />
-              Running...
-            </span>
+        {/* Model Selector and MCP Selector */}
+        <div className="session-selectors">
+          <div className="model-selector-compact">
+            <label htmlFor="model-select" className="model-selector-label">
+              Model:
+            </label>
+            <select
+              id="model-select"
+              value={selectedModel}
+              onChange={handleModelChange}
+              className="model-selector-dropdown"
+              disabled={sending || isRunning}
+            >
+              {availableModels.map(model => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+            {isRunning && (
+              <span className="running-indicator">
+                <Loader2 size={14} className="spinning" />
+                Running...
+              </span>
+            )}
+          </div>
+
+          {/* MCP Server Selector */}
+          {Object.keys(availableMcpServers).length > 0 && (
+            <div className="mcp-selector-compact">
+              <button
+                className="mcp-selector-toggle"
+                onClick={() => setShowMcpSelector(!showMcpSelector)}
+                disabled={sending || isRunning}
+                title="Select MCP Servers"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                  <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                  <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                  <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                </svg>
+                MCP ({selectedMcpServers?.length || 0})
+              </button>
+
+              {showMcpSelector && (
+                <div className="mcp-selector-dropdown">
+                  <div className="mcp-selector-header">
+                    <span>Select MCP Servers</span>
+                    <button
+                      className="mcp-selector-close"
+                      onClick={() => setShowMcpSelector(false)}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  <div className="mcp-selector-list">
+                    {Object.entries(availableMcpServers).map(([name, config]) => (
+                      <label key={name} className="mcp-selector-item">
+                        <input
+                          type="checkbox"
+                          checked={selectedMcpServers?.includes(name) || false}
+                          onChange={(e) => {
+                            const newSelected = e.target.checked
+                              ? [...(selectedMcpServers || []), name]
+                              : (selectedMcpServers || []).filter(id => id !== name)
+                            onMcpServersChange(newSelected)
+                          }}
+                          disabled={sending || isRunning}
+                        />
+                        <span className="mcp-server-name">{name}</span>
+                        <span className="mcp-server-type-badge">{config.type}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
