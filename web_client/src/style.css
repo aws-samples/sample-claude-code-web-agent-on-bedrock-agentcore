@@ -37,6 +37,94 @@
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3);
 }
 
+/* Dark Mode - Message and Dialog Overrides */
+[data-theme="dark"] .message.tool-use {
+    background-color: rgba(2, 132, 199, 0.15);
+    border-left-color: #0ea5e9;
+}
+
+[data-theme="dark"] .message.tool-result {
+    background-color: rgba(34, 197, 94, 0.15);
+    border-left-color: #22c55e;
+}
+
+[data-theme="dark"] .message.tool-result.error {
+    background-color: rgba(239, 68, 68, 0.15);
+    border-left-color: #ef4444;
+}
+
+[data-theme="dark"] .message.error {
+    background-color: rgba(239, 68, 68, 0.15);
+}
+
+[data-theme="dark"] .message.permission-request {
+    background-color: rgba(245, 158, 11, 0.15);
+    border-left-color: #f59e0b;
+}
+
+[data-theme="dark"] .permission-field strong {
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .permission-field pre,
+[data-theme="dark"] .tool-input pre,
+[data-theme="dark"] .tool-output pre,
+[data-theme="dark"] .message-content pre {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .tool-result.error .tool-output pre {
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+[data-theme="dark"] .tool-result.success .tool-output pre {
+    background-color: rgba(34, 197, 94, 0.1);
+}
+
+[data-theme="dark"] .message-content code {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Dark Mode - Authentication and Modal Overrides */
+[data-theme="dark"] .auth-card {
+    background: var(--card-bg);
+}
+
+[data-theme="dark"] .auth-error {
+    background-color: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+}
+
+[data-theme="dark"] .auth-success {
+    background-color: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #86efac;
+}
+
+[data-theme="dark"] .info-banner {
+    background-color: rgba(245, 158, 11, 0.15);
+    border-left-color: #f59e0b;
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .info-banner svg {
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .current-project-name {
+    background-color: rgba(59, 130, 246, 0.15);
+    border-color: #3b82f6;
+}
+
+[data-theme="dark"] .project-list-modal .project-item {
+    background-color: var(--card-bg);
+}
+
+[data-theme="dark"] .project-list-modal .project-item:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
 * {
     margin: 0;
     padding: 0;
