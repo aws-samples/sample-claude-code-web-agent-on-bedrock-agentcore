@@ -24,6 +24,7 @@ from claude_agent_sdk import (
     PermissionResultAllow,
     PermissionResultDeny,
     ResultMessage,
+    SystemMessage,
     TextBlock,
     ToolPermissionContext,
     ToolUseBlock,
@@ -102,6 +103,7 @@ class AgentSession:
         self.pending_permission: Optional[dict[str, Any]] = None
         self.permission_event: Optional[asyncio.Event] = None
         self.permission_result: Optional[Any] = None
+        self.permission_queue: asyncio.Queue = asyncio.Queue()  # Queue for permission events
 
         # Session configuration
         self.cwd = cwd
@@ -217,6 +219,10 @@ class AgentSession:
             env_vars["CLAUDE_CODE_USE_BEDROCK"] = "0"
             # Add placeholder API key (not actually used, just a placeholder)
             env_vars["ANTHROPIC_AUTH_TOKEN"] = "placeholder"
+
+            # Set main model if specified
+            if self.model:
+                env_vars["ANTHROPIC_MODEL"] = self.model
 
             # If a background model is specified, set it as the default Haiku model for agents
             if self.background_model:
@@ -411,13 +417,30 @@ class AgentSession:
             return PermissionResultAllow()
 
         # Auto-allow operations based on environment variable
-        # Default: auto-allow core file and shell operations
+        # Default: auto-allow most tools (only require permission for destructive operations)
         auto_allow_tools_env = os.environ.get("AUTO_ALLOW_TOOLS", "").strip()
         if auto_allow_tools_env:
             auto_allow_tools = [tool.strip() for tool in auto_allow_tools_env.split(",") if tool.strip()]
         else:
-            # Default auto-allow list (core operations)
-            auto_allow_tools = ["Read", "Write", "Edit", "Bash", "Glob", "Grep"]
+            # Default auto-allow list (most common tools)
+            auto_allow_tools = [
+                # File operations
+                "Read", "Write", "Edit", "NotebookEdit",
+                # Search operations
+                "Glob", "Grep",
+                # Shell execution
+                "Bash", "KillShell",
+                # Read-only external tools
+                "WebSearch", "WebFetch",
+                # Task management
+                "Task", "TaskOutput", "TodoWrite",
+                # User interaction
+                "AskUserQuestion",
+                # Plan mode
+                "EnterPlanMode", "ExitPlanMode",
+                # Skills
+                "Skill",
+            ]
 
         if tool_name in auto_allow_tools:
             print(f"[Permission] ✓ Auto-allow core tool: {tool_name}")
@@ -438,6 +461,13 @@ class AgentSession:
         # Create event to wait for response
         self.permission_event = asyncio.Event()
         self.permission_result = None
+
+        # Put permission request in queue for streaming
+        print(f"[Permission] Putting permission request in queue")
+        try:
+            self.permission_queue.put_nowait(self.pending_permission)
+        except Exception as e:
+            print(f"[Permission] Warning: Failed to queue permission: {e}")
 
         # Wait for client to respond (with timeout)
         print(f"[Permission] Waiting for user response (timeout: 5 minutes)...")
@@ -574,8 +604,32 @@ class AgentSession:
 
         print(f"[Session] send_message: Starting to receive response...")
         async for msg in self.client.receive_response():
-            print(f"[Session] send_message: Received message type: {type(msg).__name__}")
-            if isinstance(msg, UserMessage):
+            # Print raw message details BEFORE type checking
+            print(f"\n[Session] ========== SDK MESSAGE RECEIVED (non-streaming) ==========")
+            print(f"[Session] Message type: {type(msg).__name__}")
+            print(f"[Session] Message full type: {type(msg)}")
+            print(f"[Session] Message repr: {repr(msg)}")
+            print(f"[Session] Message str: {str(msg)}")
+            print(f"[Session] Message attributes: {dir(msg)}")
+
+            # Try to print common attributes
+            if hasattr(msg, '__dict__'):
+                print(f"[Session] Message __dict__: {msg.__dict__}")
+            if hasattr(msg, 'content'):
+                print(f"[Session] Message.content: {msg.content}")
+            if hasattr(msg, 'role'):
+                print(f"[Session] Message.role: {msg.role}")
+            if hasattr(msg, 'model'):
+                print(f"[Session] Message.model: {msg.model}")
+            if hasattr(msg, 'text'):
+                print(f"[Session] Message.text: {msg.text}")
+            print(f"[Session] ===============================================\n")
+
+            if isinstance(msg, SystemMessage):
+                # Skip system messages
+                print(f"[Session] send_message: Skipping SystemMessage")
+                pass
+            elif isinstance(msg, UserMessage):
                 # Skip user messages in response
                 print(f"[Session] send_message: Skipping UserMessage")
                 pass
@@ -671,25 +725,81 @@ class AgentSession:
         # Track last reported permission to avoid duplicates
         last_permission_id = None
 
-        # Stream response
-        print(f"[Session] send_message_stream: Starting to stream response...")
-        async for msg in self.client.receive_response():
-            print(f"[Session] send_message_stream: Received message type: {type(msg).__name__}")
+        # Create a task to receive SDK responses
+        response_iterator = self.client.receive_response()
 
-            # Check for pending permission and send event if new
-            if self.pending_permission:
-                current_permission_id = self.pending_permission.get("request_id")
-                if current_permission_id != last_permission_id:
-                    print(f"[Session] send_message_stream: Sending permission event")
+        # Stream response - interleave SDK messages and permission requests
+        print(f"[Session] send_message_stream: Starting to stream response...")
+
+        # Flag to track if we're done
+        sdk_done = False
+
+        while not sdk_done:
+            # Check permission queue first (non-blocking)
+            try:
+                permission = self.permission_queue.get_nowait()
+                permission_id = permission.get("request_id")
+                if permission_id != last_permission_id:
+                    print(f"[Session] send_message_stream: Got permission from queue, sending event")
                     yield {
                         "type": "permission",
-                        "permission": self.pending_permission
+                        "permission": permission
                     }
-                    last_permission_id = current_permission_id
+                    last_permission_id = permission_id
+            except asyncio.QueueEmpty:
+                pass
 
-            if isinstance(msg, UserMessage):
+            # Try to get next SDK message with a short timeout
+            # This allows us to periodically check the permission queue
+            try:
+                msg = await anext(response_iterator)
+
+                # Print raw message details BEFORE type checking
+                print(f"\n[Session] ========== SDK MESSAGE RECEIVED ==========")
+                print(f"[Session] Message type: {type(msg).__name__}")
+                print(f"[Session] Message full type: {type(msg)}")
+                print(f"[Session] Message repr: {repr(msg)}")
+                print(f"[Session] Message str: {str(msg)}")
+                print(f"[Session] Message attributes: {dir(msg)}")
+
+                # Try to print common attributes
+                if hasattr(msg, '__dict__'):
+                    print(f"[Session] Message __dict__: {msg.__dict__}")
+                if hasattr(msg, 'content'):
+                    print(f"[Session] Message.content: {msg.content}")
+                if hasattr(msg, 'role'):
+                    print(f"[Session] Message.role: {msg.role}")
+                if hasattr(msg, 'model'):
+                    print(f"[Session] Message.model: {msg.model}")
+                if hasattr(msg, 'text'):
+                    print(f"[Session] Message.text: {msg.text}")
+                print(f"[Session] ===============================================\n")
+
+            except asyncio.TimeoutError:
+                # No message yet, continue to check permission queue
+                continue
+            except StopAsyncIteration:
+                # SDK response stream is done
+                print(f"[Session] send_message_stream: SDK response stream completed")
+                sdk_done = True
+                break
+
+            if isinstance(msg, SystemMessage):
+                # System message - typically informational, log but don't send to client
+                print(f"[Session] send_message_stream: Received SystemMessage (skipping)")
+                print(f"[Session]   SystemMessage content: {msg}")
+                print(f"[Session]   SystemMessage attributes: {dir(msg)}")
+                if hasattr(msg, 'content'):
+                    print(f"[Session]   SystemMessage.content: {msg.content}")
+                if hasattr(msg, 'text'):
+                    print(f"[Session]   SystemMessage.text: {msg.text}")
+                # Continue to next message
+                continue
+            elif isinstance(msg, UserMessage):
                 # User message event
                 print(f"[Session] send_message_stream: Sending user_message event")
+                print(f"[Session]   UserMessage.content: {msg.content}")
+                print(f"[Session]   UserMessage.role: {msg.role if hasattr(msg, 'role') else 'N/A'}")
                 yield {
                     "type": "user_message",
                     "content": msg.content
@@ -697,23 +807,36 @@ class AgentSession:
             elif isinstance(msg, AssistantMessage):
                 # Assistant message with content blocks
                 print(f"[Session] send_message_stream: Processing AssistantMessage with {len(msg.content)} blocks")
+                print(f"[Session]   AssistantMessage.role: {msg.role if hasattr(msg, 'role') else 'N/A'}")
+                print(f"[Session]   AssistantMessage.model: {msg.model if hasattr(msg, 'model') else 'N/A'}")
+                print(f"[Session]   Full message object: {msg}")
+
                 for i, block in enumerate(msg.content):
+                    print(f"[Session]   Block #{i+1} type: {type(block).__name__}")
                     if isinstance(block, TextBlock):
                         text_preview = block.text[:100] if block.text else ""
-                        print(f"[Session]   Block #{i+1}: TextBlock (preview: {text_preview}...)")
+                        print(f"[Session]   Block #{i+1}: TextBlock")
+                        print(f"[Session]     Text (preview): {text_preview}...")
+                        print(f"[Session]     Text (length): {len(block.text) if block.text else 0}")
                         yield {
                             "type": "text",
                             "content": block.text
                         }
                     elif isinstance(block, ToolUseBlock):
-                        print(f"[Session]   Block #{i+1}: ToolUseBlock (name: {block.name}, id: {block.id})")
-                        print(f"[Session]   Tool input: {block.input}")
+                        print(f"[Session]   Block #{i+1}: ToolUseBlock")
+                        print(f"[Session]     Tool name: {block.name}")
+                        print(f"[Session]     Tool ID: {block.id}")
+                        print(f"[Session]     Tool input: {block.input}")
+                        print(f"[Session]     Tool input type: {type(block.input)}")
                         yield {
                             "type": "tool_use",
                             "tool_name": block.name,
                             "tool_input": block.input,
                             "tool_use_id": block.id
                         }
+                    else:
+                        print(f"[Session]   Block #{i+1}: Unknown block type: {type(block)}")
+                        print(f"[Session]     Block content: {block}")
             elif isinstance(msg, ResultMessage):
                 print(f"[Session] send_message_stream: Received ResultMessage")
                 print(f"[Session]   total_cost_usd: {msg.total_cost_usd}")
@@ -737,6 +860,22 @@ class AgentSession:
                     "num_turns": msg.num_turns,
                     "session_id": real_session_id
                 }
+
+        # Check for any remaining permissions in queue before finishing
+        print(f"[Session] Checking for remaining permissions in queue...")
+        while True:
+            try:
+                permission = self.permission_queue.get_nowait()
+                permission_id = permission.get("request_id")
+                if permission_id != last_permission_id:
+                    print(f"[Session] send_message_stream: Got final permission from queue, sending event")
+                    yield {
+                        "type": "permission",
+                        "permission": permission
+                    }
+                    last_permission_id = permission_id
+            except asyncio.QueueEmpty:
+                break
 
         # Send completion event with real session_id
         print(f"[Session] Yielding 'done' event")

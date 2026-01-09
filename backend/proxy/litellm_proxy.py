@@ -88,26 +88,77 @@ async def litellm_messages_proxy(request: Request):
         if is_streaming:
             # Streaming response
             print("[LiteLLM Proxy] Starting streaming response")
+            print(f"[LiteLLM Proxy] Request body keys: {body.keys()}")
+            print(f"[LiteLLM Proxy] Model: {body.get('model')}")
+            print(f"[LiteLLM Proxy] Stream: {body.get('stream')}")
+            print(f"[LiteLLM Proxy] Max tokens: {body.get('max_tokens')}")
+
             async def generate_stream():
                 try:
                     # Forward to LiteLLM with streaming
-                    print("[LiteLLM Proxy] Calling litellm.acreate()")
+                    print("[LiteLLM Proxy] Calling litellm.litellm.anthropic.messages.acreate()")
+                    print(f"[LiteLLM Proxy] Full request body: {json.dumps(body, indent=2)[:500]}...")
                     response = await litellm.litellm.anthropic.messages.acreate(**body)
-                    print("[LiteLLM Proxy] Received response, streaming chunks...")
+                    print(f"[LiteLLM Proxy] Received response object, type: {type(response)}")
+                    print("[LiteLLM Proxy] Starting to iterate over streaming chunks...")
 
                     chunk_count = 0
                     async for chunk in response:
                         chunk_count += 1
-                        # Forward raw chunk in SSE format
-                        if hasattr(chunk, "model_dump_json"):
-                            # Pydantic model
-                            yield f"data: {chunk.model_dump_json()}\n\n"
-                        elif hasattr(chunk, "json"):
-                            # Dict-like with json method
-                            yield f"data: {chunk.json()}\n\n"
-                        else:
-                            # Plain dict
-                            yield f"data: {json.dumps(chunk)}\n\n"
+
+                        # Debug: Log chunk details
+                        print(f"[LiteLLM Proxy] Chunk #{chunk_count}")
+                        print(f"[LiteLLM Proxy]   Type: {type(chunk)}")
+                        print(f"[LiteLLM Proxy]   Has model_dump_json: {hasattr(chunk, 'model_dump_json')}")
+                        print(f"[LiteLLM Proxy]   Has json: {hasattr(chunk, 'json')}")
+                        print(f"[LiteLLM Proxy]   Has model_dump: {hasattr(chunk, 'model_dump')}")
+                        print(f"[LiteLLM Proxy]   Has dict: {hasattr(chunk, 'dict')}")
+
+                        try:
+                            # Forward raw chunk in SSE format
+                            if hasattr(chunk, "model_dump_json"):
+                                # Pydantic model
+                                print(f"[LiteLLM Proxy]   Using model_dump_json()")
+                                json_str = chunk.model_dump_json()
+                                print(f"[LiteLLM Proxy]   JSON length: {len(json_str)}")
+                                yield f"data: {json_str}\n\n"
+                            elif hasattr(chunk, "json"):
+                                # Dict-like with json method
+                                print(f"[LiteLLM Proxy]   Using json()")
+                                json_str = chunk.json()
+                                print(f"[LiteLLM Proxy]   JSON length: {len(json_str)}")
+                                yield f"data: {json_str}\n\n"
+                            elif hasattr(chunk, "model_dump"):
+                                # Pydantic v2 model
+                                print(f"[LiteLLM Proxy]   Using model_dump()")
+                                chunk_dict = chunk.model_dump()
+                                print(f"[LiteLLM Proxy]   Dict keys: {chunk_dict.keys()}")
+                                json_str = json.dumps(chunk_dict)
+                                print(f"[LiteLLM Proxy]   JSON length: {len(json_str)}")
+                                yield f"data: {json_str}\n\n"
+                            elif hasattr(chunk, "dict"):
+                                # Pydantic v1 model
+                                print(f"[LiteLLM Proxy]   Using dict()")
+                                chunk_dict = chunk.dict()
+                                print(f"[LiteLLM Proxy]   Dict keys: {chunk_dict.keys()}")
+                                json_str = json.dumps(chunk_dict)
+                                print(f"[LiteLLM Proxy]   JSON length: {len(json_str)}")
+                                yield f"data: {json_str}\n\n"
+                            else:
+                                # Plain dict or unknown type
+                                print(f"[LiteLLM Proxy]   Attempting json.dumps() on raw chunk")
+                                print(f"[LiteLLM Proxy]   Raw chunk: {chunk}")
+                                json_str = json.dumps(chunk)
+                                print(f"[LiteLLM Proxy]   JSON length: {len(json_str)}")
+                                yield f"data: {json_str}\n\n"
+                        except Exception as chunk_error:
+                            print(f"[LiteLLM Proxy]   ERROR serializing chunk: {type(chunk_error).__name__}: {str(chunk_error)}")
+                            print(f"[LiteLLM Proxy]   Chunk repr: {repr(chunk)}")
+                            if isinstance(chunk, dict):
+                                print(f"[LiteLLM Proxy]   Chunk keys: {chunk.keys()}")
+                                for key, value in chunk.items():
+                                    print(f"[LiteLLM Proxy]     {key}: {type(value)} = {repr(value)[:100]}")
+                            raise
 
                     print(f"[LiteLLM Proxy] Streaming completed, sent {chunk_count} chunks")
 
@@ -125,17 +176,30 @@ async def litellm_messages_proxy(request: Request):
         else:
             # Non-streaming response
             print("[LiteLLM Proxy] Starting non-streaming response")
+            print(f"[LiteLLM Proxy] Request body keys: {body.keys()}")
+            print(f"[LiteLLM Proxy] Model: {body.get('model')}")
+
             try:
-                print("[LiteLLM Proxy] Calling litellm.acreate()")
+                print("[LiteLLM Proxy] Calling litellm.litellm.anthropic.messages.acreate()")
+                print(f"[LiteLLM Proxy] Full request body: {json.dumps(body, indent=2)[:500]}...")
                 response = await litellm.litellm.anthropic.messages.acreate(**body)
-                print("[LiteLLM Proxy] Response received successfully")
+                print(f"[LiteLLM Proxy] Response received, type: {type(response)}")
+                print(f"[LiteLLM Proxy] Has model_dump: {hasattr(response, 'model_dump')}")
+                print(f"[LiteLLM Proxy] Has dict: {hasattr(response, 'dict')}")
 
                 # Convert response to dict
                 if hasattr(response, "model_dump"):
-                    return response.model_dump()
+                    print("[LiteLLM Proxy] Using model_dump()")
+                    result = response.model_dump()
+                    print(f"[LiteLLM Proxy] Result keys: {result.keys()}")
+                    return result
                 elif hasattr(response, "dict"):
-                    return response.dict()
+                    print("[LiteLLM Proxy] Using dict()")
+                    result = response.dict()
+                    print(f"[LiteLLM Proxy] Result keys: {result.keys()}")
+                    return result
                 else:
+                    print(f"[LiteLLM Proxy] Returning raw response: {type(response)}")
                     return response
 
             except Exception as e:

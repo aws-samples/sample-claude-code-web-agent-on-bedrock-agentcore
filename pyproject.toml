@@ -5,9 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "awscli>=1.42.61",
-    "boto3>=1.40.58",
-    "claude-agent-sdk>=0.1.5",
+    "awscli>=1.44.14",
+    "boto3>=1.42.24",
+    "claude-agent-sdk>=0.1.19",
     "fastapi>=0.120.0",
     "httpx>=0.28.1",
     "langfuse>=2,<3",
