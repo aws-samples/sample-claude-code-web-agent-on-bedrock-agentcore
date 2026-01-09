@@ -1,21 +1,22 @@
 .skills-panel {
+  background: var(--card-bg);
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
 }
 
 .skills-panel .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 16px;
 }
 
-.skills-panel .panel-header h3 {
+.skills-panel .panel-header h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 600;
 }
 
