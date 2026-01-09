@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { File, X, FileText, Calendar, HardDrive, AlertCircle, Loader2, Edit3, Save, Download, XCircle, Image as ImageIcon } from 'lucide-react'
+import { File, X, FileText, Calendar, HardDrive, AlertCircle, Loader2, Edit3, Save, Download, XCircle, Image as ImageIcon, Trash2 } from 'lucide-react'
 import { createAPIClient } from '../api/client'
 import { getAgentCoreSessionId } from '../utils/authUtils'
 import hljs from 'highlight.js/lib/core'
@@ -57,6 +57,7 @@ function FilePreview({ serverUrl, filePath, onClose, disabled, currentProject })
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState('')
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const apiClientRef = useRef(null)
   const codeRef = useRef(null)
   const editorContainerRef = useRef(null)
@@ -266,6 +267,30 @@ function FilePreview({ serverUrl, filePath, onClose, disabled, currentProject })
     URL.revokeObjectURL(url)
   }
 
+  const handleDelete = async () => {
+    if (!apiClientRef.current || !fileInfo) return
+
+    // Confirm deletion
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete "${fileInfo.name}"?\n\nThis action cannot be undone.`
+    )
+    if (!confirmDelete) return
+
+    setDeleting(true)
+    setError(null)
+
+    try {
+      await apiClientRef.current.deleteFile(fileInfo.path)
+      // Close preview after successful deletion
+      onClose()
+    } catch (err) {
+      console.error('Failed to delete file:', err)
+      setError(err.message)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const formatSize = (bytes) => {
     if (!bytes) return '0 B'
     if (bytes < 1024) return `${bytes} B`
@@ -315,9 +340,9 @@ function FilePreview({ serverUrl, filePath, onClose, disabled, currentProject })
           <span>File Preview</span>
         </div>
         <div className="file-preview-actions">
-          {!loading && !error && fileInfo && fileInfo.is_text && fileInfo.content && (
+          {!loading && !error && fileInfo && (
             <>
-              {!isEditing ? (
+              {fileInfo.is_text && fileInfo.content && !isEditing && (
                 <>
                   <button
                     className="btn-icon btn-edit"
@@ -334,7 +359,8 @@ function FilePreview({ serverUrl, filePath, onClose, disabled, currentProject })
                     <Download size={16} />
                   </button>
                 </>
-              ) : (
+              )}
+              {fileInfo.is_text && fileInfo.content && isEditing && (
                 <>
                   <button
                     className="btn-icon btn-save"
@@ -353,6 +379,16 @@ function FilePreview({ serverUrl, filePath, onClose, disabled, currentProject })
                     <XCircle size={16} />
                   </button>
                 </>
+              )}
+              {!isEditing && (
+                <button
+                  className="btn-icon btn-delete"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  title="Delete file"
+                >
+                  {deleting ? <Loader2 size={16} className="spinning" /> : <Trash2 size={16} />}
+                </button>
               )}
             </>
           )}

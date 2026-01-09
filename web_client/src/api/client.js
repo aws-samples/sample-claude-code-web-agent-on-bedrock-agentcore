@@ -329,6 +329,22 @@ class DirectAPIClient {
     return response.json()
   }
 
+  async deleteFile(path) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/files/delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
+      body: JSON.stringify({ path })
+    })
+    if (!response.ok) {
+      throw new Error('Failed to delete file')
+    }
+    return response.json()
+  }
+
   async uploadFile(file, directory) {
     const authHeaders = await getAuthHeaders()
     const formData = new FormData()

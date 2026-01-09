@@ -1459,6 +1459,20 @@ body {
     border-color: var(--danger-color);
 }
 
+.btn-delete {
+    background-color: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    width: 32px;
+    height: 32px;
+}
+
+.btn-delete:hover:not(:disabled) {
+    background-color: var(--danger-color);
+    color: white;
+    border-color: var(--danger-color);
+}
+
 .file-preview-empty,
 .file-preview-loading,
 .file-preview-error {

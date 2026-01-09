@@ -54,6 +54,17 @@ class SaveFileResponse(BaseModel):
     size: int
 
 
+class DeleteFileRequest(BaseModel):
+    """Request to delete a file."""
+    path: str
+
+
+class DeleteFileResponse(BaseModel):
+    """Response for deleting file."""
+    success: bool
+    path: str
+
+
 class UploadFileResponse(BaseModel):
     """Response for uploading file."""
     success: bool
@@ -234,6 +245,41 @@ async def save_file(request: SaveFileRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+
+
+@router.post("/files/delete", response_model=DeleteFileResponse)
+async def delete_file(request: DeleteFileRequest):
+    """
+    Delete a file.
+
+    Args:
+        request: File path to delete
+
+    Returns:
+        Delete confirmation
+    """
+    try:
+        # Resolve the path
+        target_path = Path(request.path).expanduser().resolve()
+
+        if not target_path.exists():
+            raise HTTPException(status_code=404, detail="File not found")
+
+        if target_path.is_dir():
+            raise HTTPException(status_code=400, detail="Path is a directory, not a file. Use directory deletion endpoint instead.")
+
+        # Delete the file
+        target_path.unlink()
+
+        return DeleteFileResponse(
+            success=True,
+            path=str(target_path)
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
 
 
 @router.post("/files/upload", response_model=UploadFileResponse)
