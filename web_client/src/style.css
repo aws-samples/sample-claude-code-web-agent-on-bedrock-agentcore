@@ -19,20 +19,20 @@
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 }
 
-/* Dark Mode */
+/* Dark Mode - Based on awesome-skills-claude-agents/ui_design */
 [data-theme="dark"] {
-    --primary-color: #3b82f6;
-    --primary-hover: #2563eb;
+    --primary-color: #2b6cee;
+    --primary-hover: #2459d4;
     --success-color: #22c55e;
     --danger-color: #ef4444;
-    --secondary-color: #94a3b8;
-    --bg-color: #0f172a;
-    --card-bg: #1e293b;
-    --border-color: #334155;
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --user-message-bg: #1e3a5f;
-    --assistant-message-bg: #1e293b;
+    --secondary-color: #9da6b9;
+    --bg-color: #101622;
+    --card-bg: #151c2c;
+    --border-color: rgba(226, 232, 240, 0.1);
+    --text-primary: #ffffff;
+    --text-secondary: #9da6b9;
+    --user-message-bg: rgba(43, 108, 238, 0.15);
+    --assistant-message-bg: rgba(255, 255, 255, 0.03);
     --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3);
 }
