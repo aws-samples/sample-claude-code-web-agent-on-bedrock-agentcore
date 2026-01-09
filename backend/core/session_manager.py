@@ -183,6 +183,22 @@ class SessionManager:
         self.sessions: dict[str, AgentSession] = {}
         self.session_dir = Path.home() / ".claude" / "projects"
 
+    @staticmethod
+    def _is_anthropic_model(model: Optional[str]) -> bool:
+        """
+        Check if a model is from Anthropic/Claude.
+
+        Args:
+            model: Model name to check
+
+        Returns:
+            True if model is Anthropic/Claude, False otherwise
+        """
+        if not model:
+            return True  # Default to Anthropic if no model specified
+        model_lower = model.lower()
+        return "anthropic" in model_lower or "claude" in model_lower
+
     async def create_session(
         self,
         user_id: Optional[str] = None,
@@ -202,7 +218,7 @@ class SessionManager:
             resume_session_id: Optional session ID to resume
             model: Optional model name override
             background_model: Optional background model for agents
-            enable_proxy: Enable LiteLLM proxy mode
+            enable_proxy: Enable LiteLLM proxy mode (deprecated - auto-detected from model)
             server_port: Server port for proxy mode
             cwd: Working directory for the session
             mcp_server_ids: List of MCP server names to enable
@@ -215,12 +231,26 @@ class SessionManager:
         if session_id in self.sessions:
             raise HTTPException(status_code=400, detail="Session already active")
 
+        # Auto-detect if proxy is needed based on model names
+        auto_enable_proxy = (
+            not self._is_anthropic_model(model) or
+            not self._is_anthropic_model(background_model)
+        )
+
+        # Use auto-detected value if enable_proxy is False (default)
+        # Allow explicit True to override
+        final_enable_proxy = enable_proxy or auto_enable_proxy
+
+        print(f"[SessionManager] Model: {model}, Background: {background_model}")
+        print(f"[SessionManager] Auto-detected proxy need: {auto_enable_proxy}")
+        print(f"[SessionManager] Final enable_proxy: {final_enable_proxy}")
+
         session = AgentSession(
             session_id,
             user_id,
             model,
             background_model,
-            enable_proxy,
+            final_enable_proxy,
             server_port,
             cwd,
             mcp_server_ids,
@@ -422,6 +452,7 @@ class SessionManager:
 
         If model or mcp_server_ids are provided and differ from current session,
         the session will be disconnected and reconnected with new configuration.
+        Also checks if proxy mode needs to change based on model.
 
         Args:
             session_id: The session ID
@@ -443,10 +474,28 @@ class SessionManager:
         session = await self.get_session(session_id)
 
         print(f"[SessionManager] Current session model: {session.model}")
+        print(f"[SessionManager] Current session background_model: {session.background_model}")
+        print(f"[SessionManager] Current session enable_proxy: {session.enable_proxy}")
         print(f"[SessionManager] Current session mcp_server_ids: {session.mcp_server_ids}")
 
         needs_reconnect = False
         config_changes = []
+
+        # Determine new model and background_model
+        new_model = model if model else session.model
+        new_background_model = session.background_model
+
+        # Check if proxy mode needs to change based on new models
+        new_proxy_needed = (
+            not self._is_anthropic_model(new_model) or
+            not self._is_anthropic_model(new_background_model)
+        )
+
+        if new_proxy_needed != session.enable_proxy:
+            print(f"[SessionManager] ✗ Proxy mode change detected")
+            config_changes.append(f"enable_proxy: {session.enable_proxy} → {new_proxy_needed}")
+            session.enable_proxy = new_proxy_needed
+            needs_reconnect = True
 
         # Check if model needs to be updated
         if model:

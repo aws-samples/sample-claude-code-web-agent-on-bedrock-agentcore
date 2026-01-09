@@ -18,32 +18,11 @@ function SettingsModal({ isOpen, onClose, settings, onSave }) {
 
   if (!isOpen) return null
 
-  // Check if a model is from Anthropic
-  const isAnthropicModel = (model) => {
-    if (!model) return true // Default to Anthropic if no model specified
-    const modelLower = model.toLowerCase()
-    return modelLower.includes('anthropic') || modelLower.includes('claude')
-  }
-
   const handleChange = (key, value) => {
-    setLocalSettings(prev => {
-      const newSettings = {
-        ...prev,
-        [key]: value
-      }
-
-      // Auto-enable proxy for non-Anthropic models
-      if (key === 'model' || key === 'backgroundModel') {
-        const mainModel = key === 'model' ? value : prev.model
-        const bgModel = key === 'backgroundModel' ? value : prev.backgroundModel
-
-        // Enable proxy if any model is non-Anthropic
-        const needsProxy = !isAnthropicModel(mainModel) || !isAnthropicModel(bgModel)
-        newSettings.enableProxy = needsProxy
-      }
-
-      return newSettings
-    })
+    setLocalSettings(prev => ({
+      ...prev,
+      [key]: value
+    }))
   }
 
   const handleSave = () => {
@@ -118,23 +97,7 @@ function SettingsModal({ isOpen, onClose, settings, onSave }) {
                 </option>
               ))}
             </select>
-            <small>Select the model for background tasks</small>
-          </div>
-
-          <div className="form-group checkbox-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={localSettings.enableProxy || false}
-                onChange={(e) => handleChange('enableProxy', e.target.checked)}
-              />
-              <span>
-                Enable Proxy Mode (for non-Anthropic models)
-                {(!isAnthropicModel(localSettings.model) || !isAnthropicModel(localSettings.backgroundModel)) &&
-                  <span style={{ color: '#ffa500', marginLeft: '8px' }}>• Auto-enabled</span>
-                }
-              </span>
-            </label>
+            <small>Select the model for background tasks (proxy mode auto-detected)</small>
           </div>
         </div>
 

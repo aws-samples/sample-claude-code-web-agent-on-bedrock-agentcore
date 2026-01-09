@@ -31,8 +31,7 @@ const DEFAULT_SETTINGS = {
   serverUrl: import.meta.env.VITE_DEFAULT_SERVER_URL || 'http://127.0.0.1:8000',
   cwd: import.meta.env.VITE_DEFAULT_CWD || '/workspace',
   model: import.meta.env.VITE_DEFAULT_MODEL || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0',
-  backgroundModel: import.meta.env.VITE_DEFAULT_BACKGROUND_MODEL || 'global.anthropic.claude-haiku-4-5-20251001-v1:0',
-  enableProxy: import.meta.env.VITE_DEFAULT_ENABLE_PROXY === 'true'
+  backgroundModel: import.meta.env.VITE_DEFAULT_BACKGROUND_MODEL || 'global.anthropic.claude-haiku-4-5-20251001-v1:0'
 }
 
 function AppContent() {
@@ -519,14 +518,7 @@ function AppContent() {
     setPreviewFilePath(null)
   }
 
-  // Check if a model is from Anthropic
-  const isAnthropicModel = (model) => {
-    if (!model) return true
-    const modelLower = model.toLowerCase()
-    return modelLower.includes('anthropic') || modelLower.includes('claude')
-  }
-
-  // Handle model change - use set_model API or restart if proxy mode changes
+  // Handle model change - backend auto-detects proxy mode
   const handleModelChange = async (newModel) => {
     console.log(`Switching model from ${settings.model} to ${newModel}`)
 
@@ -536,42 +528,16 @@ function AppContent() {
     }
 
     try {
-      // Check if proxy mode needs to change
-      const currentNeedsProxy = settings.enableProxy
-      const newNeedsProxy = !isAnthropicModel(newModel)
-
-      // If proxy mode changes, need to restart session
-      if (currentNeedsProxy !== newNeedsProxy) {
-        console.log('Proxy mode change detected, restarting session...')
-
-        // Update settings with new model and proxy setting
-        const newSettings = {
-          ...settings,
-          model: newModel,
-          enableProxy: newNeedsProxy
-        }
-
-        setSettings(newSettings)
-
-        // Disconnect current session
-        await disconnect()
-
-        // Reconnect with new model
-        setTimeout(() => {
-          connect(newSettings)
-        }, 500)
-      } else {
-        // Proxy mode unchanged, just update settings
-        // Model will be automatically updated on next message send
-        const newSettings = {
-          ...settings,
-          model: newModel
-        }
-
-        setSettings(newSettings)
-
-        console.log(`✓ Model changed to ${newModel} (will take effect on next message)`)
+      // Just update settings
+      // Backend will automatically detect if proxy is needed and handle reconnection
+      const newSettings = {
+        ...settings,
+        model: newModel
       }
+
+      setSettings(newSettings)
+
+      console.log(`✓ Model changed to ${newModel} (backend will auto-detect proxy mode and reconnect if needed)`)
     } catch (error) {
       console.error('Failed to change model:', error)
       alert(`Failed to change model: ${error.message}`)

@@ -199,10 +199,8 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
       // Check server health
       await apiClientRef.current.healthCheck()
 
-      // Create session
-      const payload = {
-        enable_proxy: config.enableProxy
-      }
+      // Create session (backend auto-detects proxy mode from model)
+      const payload = {}
       if (config.model.trim()) {
         payload.model = config.model.trim()
       }
@@ -255,11 +253,9 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
         await apiClientRef.current.deleteSession(sessionId)
       }
 
-      // Create new session with same config
+      // Create new session with same config (backend auto-detects proxy mode)
       const config = configRef.current
-      const payload = {
-        enable_proxy: config.enableProxy
-      }
+      const payload = {}
       if (config.model.trim()) {
         payload.model = config.model.trim()
       }
@@ -561,8 +557,7 @@ export function useClaudeAgent(initialServerUrl = 'http://127.0.0.1:8000', userI
       if (statusResponse.status === 404) {
         // Session not active, need to create/resume it
         const payload = {
-          resume_session_id: existingSessionId,
-          enable_proxy: config.enableProxy
+          resume_session_id: existingSessionId
         }
         if (config.model && config.model.trim()) {
           payload.model = config.model.trim()
