@@ -820,6 +820,103 @@ class DirectAPIClient {
     }
     return response.json()
   }
+
+  // Plugin management
+  async listPlugins() {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/plugins`, {
+      headers: authHeaders
+    })
+    if (!response.ok) {
+      throw new Error('Failed to list plugins')
+    }
+    return response.json()
+  }
+
+  async addMarketplace(name, gitUrl) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/plugins/marketplaces`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
+      body: JSON.stringify({ name, git_url: gitUrl })
+    })
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.detail || 'Failed to add marketplace')
+    }
+    return response.json()
+  }
+
+  async deleteMarketplace(marketplaceName) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/plugins/marketplaces/${encodeURIComponent(marketplaceName)}`, {
+      method: 'DELETE',
+      headers: authHeaders
+    })
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.detail || 'Failed to delete marketplace')
+    }
+    return response.json()
+  }
+
+  async updateMarketplace(marketplaceName) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/plugins/marketplaces/${encodeURIComponent(marketplaceName)}/update`, {
+      method: 'POST',
+      headers: authHeaders
+    })
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.detail || 'Failed to update marketplace')
+    }
+    return response.json()
+  }
+
+  async installPlugin(pluginName, marketplaceName) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/plugins/install`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
+      body: JSON.stringify({ plugin_name: pluginName, marketplace_name: marketplaceName })
+    })
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.detail || 'Failed to install plugin')
+    }
+    return response.json()
+  }
+
+  async uninstallPlugin(pluginKey) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/plugins/install/${encodeURIComponent(pluginKey)}`, {
+      method: 'DELETE',
+      headers: authHeaders
+    })
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.detail || 'Failed to uninstall plugin')
+    }
+    return response.json()
+  }
+
+  async getPluginDetail(marketplaceName, pluginName) {
+    const authHeaders = await getAuthHeaders()
+    const response = await fetch(`${this.baseUrl}/plugins/${encodeURIComponent(marketplaceName)}/${encodeURIComponent(pluginName)}`, {
+      headers: authHeaders
+    })
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.detail || 'Failed to get plugin details')
+    }
+    return response.json()
+  }
 }
 
 /**
@@ -1473,6 +1570,35 @@ class InvocationsAPIClient {
 
   async getGitDiff(cwd, commitHash) {
     return this._invoke('/git/diff', 'POST', { cwd, commit_hash: commitHash })
+  }
+
+  // Plugin management
+  async listPlugins() {
+    return this._invoke('/plugins', 'GET')
+  }
+
+  async addMarketplace(name, gitUrl) {
+    return this._invoke('/plugins/marketplaces', 'POST', { name, git_url: gitUrl })
+  }
+
+  async deleteMarketplace(marketplaceName) {
+    return this._invoke('/plugins/marketplaces/{marketplace_name}', 'DELETE', null, { marketplace_name: marketplaceName })
+  }
+
+  async updateMarketplace(marketplaceName) {
+    return this._invoke('/plugins/marketplaces/{marketplace_name}/update', 'POST', null, { marketplace_name: marketplaceName })
+  }
+
+  async installPlugin(pluginName, marketplaceName) {
+    return this._invoke('/plugins/install', 'POST', { plugin_name: pluginName, marketplace_name: marketplaceName })
+  }
+
+  async uninstallPlugin(pluginKey) {
+    return this._invoke('/plugins/install/{plugin_key}', 'DELETE', null, { plugin_key: pluginKey })
+  }
+
+  async getPluginDetail(marketplaceName, pluginName) {
+    return this._invoke('/plugins/{marketplace_name}/{plugin_name}', 'GET', null, { marketplace_name: marketplaceName, plugin_name: pluginName })
   }
 }
 

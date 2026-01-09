@@ -57,6 +57,7 @@ from .api import (
     messages_router,
     oauth_router,
     permissions_router,
+    plugins_router,
     sessions_router,
     shell_router,
     terminal_router,
@@ -184,6 +185,9 @@ app.include_router(oauth_router, tags=["oauth"])
 
 # MCP servers endpoints
 app.include_router(mcp_servers_router, tags=["mcp-servers"])
+
+# Plugins management endpoints
+app.include_router(plugins_router, tags=["plugins"])
 
 # AgentCore session management endpoints
 app.include_router(agentcore_router, tags=["agentcore"])

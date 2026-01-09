@@ -274,7 +274,11 @@ class AgentSession:
                 print(f"[Session]   {key}={masked_value}")
         else:
             print(f"[Session] env vars: None")
+        print(f"[Session] setting_sources: ['user']")
         print(f"[Session] ===============================================")
+
+        # Add setting_sources to load user plugins
+        options_dict["setting_sources"] = ["user"]
 
         options = ClaudeAgentOptions(**options_dict)
 

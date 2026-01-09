@@ -7,7 +7,7 @@ import FileBrowser from './components/FileBrowser'
 import GitPanel from './components/GitPanel'
 import ProjectPanel from './components/ProjectPanel'
 import MCPServersPanel from './components/MCPServersPanel'
-import SkillsPanel from './components/SkillsPanel'
+import PluginsPanel from './components/PluginsPanel'
 import FilePreview from './components/FilePreview'
 import SettingsModal from './components/SettingsModal'
 import TerminalPTY from './components/TerminalPTY'
@@ -824,9 +824,9 @@ function AppContent() {
               </svg>
             </button>
             <button
-              className={`sidebar-tab ${activeTab === 'skills' ? 'active' : ''}`}
-              onClick={() => setActiveTab('skills')}
-              title="Skills"
+              className={`sidebar-tab ${activeTab === 'plugins' ? 'active' : ''}`}
+              onClick={() => setActiveTab('plugins')}
+              title="Plugins"
             >
               <ToolCase size={16} />
             </button>
@@ -891,11 +891,11 @@ function AppContent() {
               />
             )}
 
-            {activeTab === 'skills' && (
-              <SkillsPanel
+            {activeTab === 'plugins' && (
+              <PluginsPanel
                 serverUrl={settings.serverUrl}
                 disabled={serverDisconnected}
-                isActive={activeTab === 'skills'}
+                isActive={activeTab === 'plugins'}
                 currentProject={currentProject}
               />
             )}

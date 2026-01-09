@@ -8,6 +8,7 @@ from .mcp_servers import router as mcp_servers_router
 from .messages import router as messages_router
 from .oauth import router as oauth_router
 from .permissions import router as permissions_router
+from .plugins import router as plugins_router
 from .sessions import router as sessions_router
 from .shell import router as shell_router
 from .terminal import router as terminal_router
@@ -26,4 +27,5 @@ __all__ = [
     "workspace_router",
     "oauth_router",
     "mcp_servers_router",
+    "plugins_router",
 ]

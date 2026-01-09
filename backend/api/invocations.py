@@ -724,6 +724,77 @@ async def invocations(http_request: Request, request: dict[str, Any]):
                 )
             return await delete_mcp_server(server_name)
 
+        elif path == "/plugins" and method == "GET":
+            # List plugins and marketplaces
+            from .plugins import list_plugins
+            return await list_plugins()
+
+        elif path == "/plugins/marketplaces" and method == "POST":
+            # Add marketplace
+            from .plugins import add_marketplace, AddMarketplaceRequest
+            req = AddMarketplaceRequest(**payload)
+            return await add_marketplace(req)
+
+        elif (
+            path.startswith("/plugins/marketplaces/")
+            and path.endswith("/update")
+            and method == "POST"
+        ):
+            # Update marketplace
+            from .plugins import update_marketplace
+            marketplace_name = path_params.get("marketplace_name")
+            if not marketplace_name:
+                raise HTTPException(
+                    status_code=400, detail="Missing marketplace_name in path_params"
+                )
+            return await update_marketplace(marketplace_name)
+
+        elif (
+            path.startswith("/plugins/marketplaces/")
+            and not path.endswith("/update")
+            and method == "DELETE"
+        ):
+            # Delete marketplace
+            from .plugins import delete_marketplace
+            marketplace_name = path_params.get("marketplace_name")
+            if not marketplace_name:
+                raise HTTPException(
+                    status_code=400, detail="Missing marketplace_name in path_params"
+                )
+            return await delete_marketplace(marketplace_name)
+
+        elif path == "/plugins/install" and method == "POST":
+            # Install plugin
+            from .plugins import install_plugin, InstallPluginRequest
+            req = InstallPluginRequest(**payload)
+            return await install_plugin(req)
+
+        elif path.startswith("/plugins/install/") and method == "DELETE":
+            # Uninstall plugin
+            from .plugins import uninstall_plugin
+            plugin_key = path_params.get("plugin_key")
+            if not plugin_key:
+                raise HTTPException(
+                    status_code=400, detail="Missing plugin_key in path_params"
+                )
+            return await uninstall_plugin(plugin_key)
+
+        elif (
+            path.startswith("/plugins/")
+            and not path.startswith("/plugins/marketplaces")
+            and not path.startswith("/plugins/install")
+            and method == "GET"
+        ):
+            # Get plugin detail
+            from .plugins import get_plugin_detail
+            marketplace_name = path_params.get("marketplace_name")
+            plugin_name = path_params.get("plugin_name")
+            if not marketplace_name or not plugin_name:
+                raise HTTPException(
+                    status_code=400, detail="Missing marketplace_name or plugin_name in path_params"
+                )
+            return await get_plugin_detail(marketplace_name, plugin_name)
+
         elif path == "/health" and method == "GET":
             # Health check - import here to avoid circular dependency
             from ..server import health_check
