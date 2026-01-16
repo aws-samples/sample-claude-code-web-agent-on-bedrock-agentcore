@@ -15,6 +15,10 @@ function Message({ message, onPermissionRespond, onQuestionAnswer }) {
 
   const formatToolContent = (text) => {
     if (!text) return ''
+    // Handle object content (e.g., {type, source} from tool results)
+    if (typeof text === 'object') {
+      text = JSON.stringify(text, null, 2)
+    }
     // Limit tool result display length for readability
     const maxLength = 1000
     if (text.length > maxLength) {
