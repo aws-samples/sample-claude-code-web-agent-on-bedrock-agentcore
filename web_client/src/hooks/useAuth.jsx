@@ -145,7 +145,13 @@ export function AuthProvider({ children }) {
       let userMessage = err.message || 'Failed to sign up'
 
       if (err.name === 'UsernameExistsException') {
-        userMessage = 'Username already exists. Please choose a different username.'
+        // User exists but may be unconfirmed - allow them to verify
+        return {
+          success: false,
+          error: 'Username already exists. If you haven\'t verified your email, click "Resend Code" below.',
+          errorName: err.name,
+          canResend: true
+        }
       } else if (err.name === 'InvalidPasswordException') {
         userMessage = 'Password does not meet requirements. It must be at least 8 characters and include uppercase, lowercase, numbers, and special characters.'
       } else if (err.name === 'InvalidParameterException') {

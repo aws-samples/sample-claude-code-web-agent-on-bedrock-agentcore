@@ -77,6 +77,11 @@ function Signup({ onSwitchToLogin }) {
 
         setSuccess('Account created! Check your email for verification code.')
         setStep('confirm')
+      } else if (result.canResend) {
+        // Username exists but unconfirmed - allow resend
+        console.log('⚠️ Username exists, allowing resend verification')
+        setError(result.error)
+        setStep('confirm')
       } else {
         console.log('❌ Signup failed:', result.error)
         setError(result.error || 'Signup failed. Please try again.')

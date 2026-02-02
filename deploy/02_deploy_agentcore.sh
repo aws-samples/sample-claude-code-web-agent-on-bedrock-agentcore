@@ -77,6 +77,15 @@ if [ -z "$COGNITO_USER_POOL_ID" ] || [ -z "$COGNITO_CLIENT_ID" ]; then
     if [ -n "$EXISTING_POOL" ]; then
         COGNITO_USER_POOL_ID="$EXISTING_POOL"
         echo -e "${GREEN}✓${NC} Cognito User Pool already exists: ${COGNITO_USER_POOL_ID}"
+        
+        # Update existing pool to ensure correct settings
+        echo -e "${YELLOW}Updating Cognito User Pool settings...${NC}"
+        aws cognito-idp update-user-pool \
+            --user-pool-id "${COGNITO_USER_POOL_ID}" \
+            --region "${AWS_REGION}" \
+            --auto-verified-attributes email \
+            --admin-create-user-config AllowAdminCreateUserOnly=false
+        echo -e "${GREEN}✓${NC} Cognito User Pool settings updated"
     else
         echo -e "${YELLOW}Creating Cognito User Pool: ${COGNITO_POOL_NAME}${NC}"
 
