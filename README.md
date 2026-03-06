@@ -2,6 +2,10 @@
 
 English | [简体中文](README.zh-CN.md)
 
+
+https://github.com/user-attachments/assets/5132e8fa-d2d4-44c6-acee-2d63213b9d39
+
+
 📖 **[User Guide](docs/USER_GUIDE.md)** | [用户手册](docs/USER_GUIDE.zh-CN.md)
 
 A production-ready web agent powered by Claude Code SDK, deployed on AWS Bedrock AgentCore Runtime with React frontend on AWS Amplify.
