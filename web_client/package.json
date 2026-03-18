@@ -21,7 +21,7 @@
     "vite": "^7.1.12"
   },
   "dependencies": {
-    "@aws-amplify/ui-react": "^6.13.1",
+    "@aws-amplify/ui-react": "^6.15.2",
     "@codemirror/autocomplete": "^6.19.1",
     "@codemirror/commands": "^6.10.0",
     "@codemirror/lang-css": "^6.3.1",
