@@ -11,6 +11,8 @@ import shutil
 from pathlib import Path
 from typing import Optional
 
+from .user_credentials import UserCredentialsError, get_s3_env
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,22 +28,37 @@ class S3Client:
     Provides methods for checking existence, syncing, and listing S3 objects.
     """
 
-    def __init__(self, bucket_name: str, s3_prefix: str = "user_data"):
+    def __init__(
+        self,
+        bucket_name: str,
+        s3_prefix: str = "user_data",
+        user_id: Optional[str] = None,
+    ):
         """
         Initialize S3 client.
 
         Args:
             bucket_name: S3 bucket name
             s3_prefix: S3 key prefix (default: "user_data")
+            user_id: User whose per-user credentials s5cmd runs with
+                (see core/user_credentials.py)
         """
         self.bucket_name = bucket_name
         self.s3_prefix = s3_prefix
+        self.user_id = user_id
 
         if not self._check_s5cmd_installed():
             raise S3ClientError(
                 "s5cmd is not installed. Please install it: "
                 "https://github.com/peak/s5cmd#installation"
             )
+
+    async def _subprocess_env(self) -> Optional[dict]:
+        """Environment for s5cmd: per-user credentials, or None to inherit."""
+        try:
+            return await get_s3_env(self.user_id)
+        except UserCredentialsError as e:
+            raise S3ClientError(str(e)) from e
 
     def _check_s5cmd_installed(self) -> bool:
         """Check if s5cmd is installed and available."""
@@ -78,6 +95,7 @@ class S3Client:
                 "s5cmd",
                 "ls",
                 s3_path,
+                env=await self._subprocess_env(),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -145,6 +163,7 @@ class S3Client:
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
+                env=await self._subprocess_env(),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -225,6 +244,7 @@ class S3Client:
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd,
+                env=await self._subprocess_env(),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -276,6 +296,7 @@ class S3Client:
                 "s5cmd",
                 "ls",
                 s3_path,
+                env=await self._subprocess_env(),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )

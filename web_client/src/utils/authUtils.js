@@ -108,6 +108,18 @@ export async function getAuthHeaders(includeSessionId = false, project = null) {
     'Authorization': `Bearer ${token}`
   }
 
+  // ID token for per-user S3 credentials in the backend (Cognito Identity Pool).
+  // getValidAccessToken() has already refreshed the session if needed.
+  try {
+    const session = await fetchAuthSession({ forceRefresh: false })
+    const idToken = session.tokens?.idToken?.toString()
+    if (idToken) {
+      headers['X-Amzn-Bedrock-AgentCore-Runtime-Custom-Id-Token'] = idToken
+    }
+  } catch (error) {
+    console.error('Failed to get ID token:', error)
+  }
+
   // Optionally include AgentCore session ID header
   if (includeSessionId) {
     const sessionId = await getAgentCoreSessionId(project)

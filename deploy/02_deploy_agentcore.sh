@@ -342,25 +342,14 @@ cat > /tmp/role-policy.json <<EOF
                 "arn:aws:bedrock:*::foundation-model/*",
                 "arn:aws:bedrock:${AWS_REGION}:${AWS_ACCOUNT_ID}:*"
             ]
-        },
-        {
-            "Sid": "S3WorkspaceAccess",
-            "Effect": "Allow",
-            "Action": [
-                "s3:GetObject",
-                "s3:PutObject",
-                "s3:ListBucket",
-                "s3:DeleteObject"
-            ],
-            "Resource": [
-                "arn:aws:s3:::${BUCKET_NAME}",
-                "arn:aws:s3:::${BUCKET_NAME}/*"
-            ]
         }
     ]
 }
 EOF
 
+# The runtime role deliberately has NO access to the workspace bucket. Code in
+# the microVM (agent, shell, terminal) can use the runtime role's credentials,
+# so S3 access goes through per-user Identity Pool credentials instead (below).
 aws iam put-role-policy \
     --role-name "${FULL_ROLE_NAME}" \
     --policy-name "AgentCoreRuntimePolicy" \
@@ -371,6 +360,147 @@ rm /tmp/role-policy.json
 
 echo -e "${YELLOW}Waiting 10 seconds for IAM role to propagate...${NC}"
 sleep 10
+
+# Per-user S3 access: Cognito Identity Pool
+#
+# The backend exchanges each user's Cognito ID token for temporary credentials
+# from this Identity Pool. The pool maps the token's `sub` claim to the `sub`
+# principal tag, and the authenticated role only allows the user's own prefix
+# s3://${BUCKET_NAME}/${S3_PREFIX}/{sub}/. Code running in one user's microVM
+# therefore cannot read or write another user's workspace.
+echo ""
+echo -e "${YELLOW}Checking Cognito Identity Pool for per-user S3 access...${NC}"
+
+S3_PREFIX="${S3_WORKSPACE_PREFIX:-user_data}"
+IDENTITY_POOL_NAME="${COGNITO_IDENTITY_POOL_NAME:-ClaudeAgentIdentityPool_${DEPLOYMENT_ENV:-prod}}"
+COGNITO_PROVIDER_NAME="cognito-idp.${AWS_REGION}.amazonaws.com/${COGNITO_USER_POOL_ID}"
+
+IDENTITY_POOL_ID=$(aws cognito-identity list-identity-pools --max-results 60 --region "${AWS_REGION}" \
+    --query "IdentityPools[?IdentityPoolName=='${IDENTITY_POOL_NAME}'].IdentityPoolId | [0]" \
+    --output text)
+
+if [ -n "$IDENTITY_POOL_ID" ] && [ "$IDENTITY_POOL_ID" != "None" ]; then
+    echo -e "${GREEN}✓${NC} Identity Pool already exists: ${IDENTITY_POOL_ID}"
+    aws cognito-identity update-identity-pool \
+        --identity-pool-id "${IDENTITY_POOL_ID}" \
+        --identity-pool-name "${IDENTITY_POOL_NAME}" \
+        --no-allow-unauthenticated-identities \
+        --cognito-identity-providers "ProviderName=${COGNITO_PROVIDER_NAME},ClientId=${COGNITO_CLIENT_ID},ServerSideTokenCheck=false" \
+        --region "${AWS_REGION}" > /dev/null
+else
+    echo -e "${YELLOW}Creating Identity Pool: ${IDENTITY_POOL_NAME}${NC}"
+    IDENTITY_POOL_ID=$(aws cognito-identity create-identity-pool \
+        --identity-pool-name "${IDENTITY_POOL_NAME}" \
+        --no-allow-unauthenticated-identities \
+        --cognito-identity-providers "ProviderName=${COGNITO_PROVIDER_NAME},ClientId=${COGNITO_CLIENT_ID},ServerSideTokenCheck=false" \
+        --region "${AWS_REGION}" \
+        --query 'IdentityPoolId' --output text)
+    echo -e "${GREEN}✓${NC} Identity Pool created: ${IDENTITY_POOL_ID}"
+fi
+
+# Map the user pool `sub` claim to the `sub` principal tag
+aws cognito-identity set-principal-tag-attribute-map \
+    --identity-pool-id "${IDENTITY_POOL_ID}" \
+    --identity-provider-name "${COGNITO_PROVIDER_NAME}" \
+    --no-use-defaults \
+    --principal-tags "sub=sub" \
+    --region "${AWS_REGION}" > /dev/null
+echo -e "${GREEN}✓${NC} Principal tag mapping set (sub -> sub)"
+
+S3_USER_ROLE_NAME="${IAM_ROLE_NAME}-S3User-${AWS_REGION}-${DEPLOYMENT_ENV:-prod}"
+
+cat > /tmp/s3-user-trust-policy.json <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [{
+        "Effect": "Allow",
+        "Principal": {
+            "Federated": "cognito-identity.amazonaws.com"
+        },
+        "Action": ["sts:AssumeRoleWithWebIdentity", "sts:TagSession"],
+        "Condition": {
+            "StringEquals": {
+                "cognito-identity.amazonaws.com:aud": "${IDENTITY_POOL_ID}"
+            },
+            "ForAnyValue:StringLike": {
+                "cognito-identity.amazonaws.com:amr": "authenticated"
+            }
+        }
+    }]
+}
+EOF
+
+if aws iam get-role --role-name "${S3_USER_ROLE_NAME}" &>/dev/null; then
+    S3_USER_ROLE_ARN=$(aws iam get-role --role-name "${S3_USER_ROLE_NAME}" --query 'Role.Arn' --output text)
+    aws iam update-assume-role-policy \
+        --role-name "${S3_USER_ROLE_NAME}" \
+        --policy-document file:///tmp/s3-user-trust-policy.json
+    echo -e "${GREEN}✓${NC} Per-user S3 role already exists: ${S3_USER_ROLE_ARN}"
+else
+    S3_USER_ROLE_ARN=$(aws iam create-role \
+        --role-name "${S3_USER_ROLE_NAME}" \
+        --assume-role-policy-document file:///tmp/s3-user-trust-policy.json \
+        --description "Per-user workspace S3 access via Cognito Identity Pool" \
+        --tags \
+            Key=Project,Value="${TAG_PROJECT:-claude-agent}" \
+            Key=Environment,Value="${TAG_ENVIRONMENT:-production}" \
+            Key=ManagedBy,Value="${TAG_MANAGED_BY:-deployment-script}" \
+        --query 'Role.Arn' \
+        --output text)
+    echo -e "${GREEN}✓${NC} Per-user S3 role created: ${S3_USER_ROLE_ARN}"
+fi
+rm /tmp/s3-user-trust-policy.json
+
+# \${aws:PrincipalTag/sub} is an IAM policy variable, not a shell variable
+cat > /tmp/s3-user-policy.json <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ListOwnPrefix",
+            "Effect": "Allow",
+            "Action": "s3:ListBucket",
+            "Resource": "arn:aws:s3:::${BUCKET_NAME}",
+            "Condition": {
+                "StringLike": {
+                    "s3:prefix": [
+                        "${S3_PREFIX}/\${aws:PrincipalTag/sub}",
+                        "${S3_PREFIX}/\${aws:PrincipalTag/sub}/*"
+                    ]
+                }
+            }
+        },
+        {
+            "Sid": "ReadWriteOwnPrefix",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::${BUCKET_NAME}/${S3_PREFIX}/\${aws:PrincipalTag/sub}/*"
+        },
+        {
+            "Sid": "BucketLocation",
+            "Effect": "Allow",
+            "Action": "s3:GetBucketLocation",
+            "Resource": "arn:aws:s3:::${BUCKET_NAME}"
+        }
+    ]
+}
+EOF
+
+aws iam put-role-policy \
+    --role-name "${S3_USER_ROLE_NAME}" \
+    --policy-name "PerUserWorkspaceS3Access" \
+    --policy-document file:///tmp/s3-user-policy.json
+rm /tmp/s3-user-policy.json
+
+aws cognito-identity set-identity-pool-roles \
+    --identity-pool-id "${IDENTITY_POOL_ID}" \
+    --roles "authenticated=${S3_USER_ROLE_ARN}" \
+    --region "${AWS_REGION}"
+echo -e "${GREEN}✓${NC} Identity Pool authenticated role set"
 
 # Create or update AgentCore Runtime
 echo ""
@@ -389,6 +519,8 @@ ENV_VARS="AWS_DEFAULT_REGION=${AWS_REGION}"
 [ -n "${DISABLE_PROMPT_CACHING}" ] && ENV_VARS="${ENV_VARS},DISABLE_PROMPT_CACHING=${DISABLE_PROMPT_CACHING}"
 [ -n "${CLAUDE_CODE_USE_BEDROCK}" ] && ENV_VARS="${ENV_VARS},CLAUDE_CODE_USE_BEDROCK=${CLAUDE_CODE_USE_BEDROCK}"
 ENV_VARS="${ENV_VARS},S3_WORKSPACE_BUCKET=${BUCKET_NAME}"
+ENV_VARS="${ENV_VARS},S3_WORKSPACE_PREFIX=${S3_PREFIX}"
+ENV_VARS="${ENV_VARS},IDENTITY_POOL_ID=${IDENTITY_POOL_ID}"
 [ -n "${OAUTH_CALLBACK_URL}" ] && ENV_VARS="${ENV_VARS},OAUTH_CALLBACK_URL=${OAUTH_CALLBACK_URL}"
 
 # Prepare authorizer configuration
@@ -408,7 +540,7 @@ if [ -n "$EXISTING_RUNTIME" ]; then
             --agent-runtime-artifact "containerConfiguration={containerUri=${DOCKER_IMAGE_URI}}" \
             --network-configuration "networkMode=PUBLIC" \
             --role-arn "${ROLE_ARN}" \
-            --request-header-configuration "requestHeaderAllowlist=[Authorization]" \
+            --request-header-configuration "requestHeaderAllowlist=[Authorization,X-Amzn-Bedrock-AgentCore-Runtime-Custom-Id-Token]" \
             --environment-variables "${ENV_VARS}" \
             --authorizer-configuration "${AUTHORIZER_CONFIG}" \
             --output json > /tmp/runtime-output.json
@@ -419,7 +551,7 @@ if [ -n "$EXISTING_RUNTIME" ]; then
             --agent-runtime-artifact "containerConfiguration={containerUri=${DOCKER_IMAGE_URI}}" \
             --network-configuration "networkMode=PUBLIC" \
             --role-arn "${ROLE_ARN}" \
-            --request-header-configuration "requestHeaderAllowlist=[Authorization]" \
+            --request-header-configuration "requestHeaderAllowlist=[Authorization,X-Amzn-Bedrock-AgentCore-Runtime-Custom-Id-Token]" \
             --environment-variables "${ENV_VARS}" \
             --output json > /tmp/runtime-output.json
     fi
@@ -436,7 +568,7 @@ else
             --agent-runtime-artifact "containerConfiguration={containerUri=${DOCKER_IMAGE_URI}}" \
             --network-configuration "networkMode=PUBLIC" \
             --role-arn "${ROLE_ARN}" \
-            --request-header-configuration "requestHeaderAllowlist=[Authorization]" \
+            --request-header-configuration "requestHeaderAllowlist=[Authorization,X-Amzn-Bedrock-AgentCore-Runtime-Custom-Id-Token]" \
             --environment-variables "${ENV_VARS}" \
             --authorizer-configuration "${AUTHORIZER_CONFIG}" \
             --output json > /tmp/runtime-output.json
@@ -447,7 +579,7 @@ else
             --agent-runtime-artifact "containerConfiguration={containerUri=${DOCKER_IMAGE_URI}}" \
             --network-configuration "networkMode=PUBLIC" \
             --role-arn "${ROLE_ARN}" \
-            --request-header-configuration "requestHeaderAllowlist=[Authorization]" \
+            --request-header-configuration "requestHeaderAllowlist=[Authorization,X-Amzn-Bedrock-AgentCore-Runtime-Custom-Id-Token]" \
             --environment-variables "${ENV_VARS}" \
             --output json > /tmp/runtime-output.json
     fi
@@ -502,6 +634,9 @@ export AGENT_RUNTIME_URL=${RUNTIME_URL}
 export WORKLOAD_IDENTITY_ARN=${WORKLOAD_IDENTITY_ARN}
 export IAM_ROLE_ARN=${ROLE_ARN}
 export S3_WORKSPACE_BUCKET=${BUCKET_NAME}
+export S3_WORKSPACE_PREFIX=${S3_PREFIX}
+export IDENTITY_POOL_ID=${IDENTITY_POOL_ID}
+export S3_USER_ROLE_NAME=${S3_USER_ROLE_NAME}
 export COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID}
 export COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID}
 export COGNITO_DISCOVERY_URL=${COGNITO_DISCOVERY_URL}

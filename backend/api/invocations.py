@@ -11,6 +11,13 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 
+from ..core.user_credentials import (
+    ID_TOKEN_HEADER,
+    UserCredentialsError,
+    is_enabled as user_credentials_enabled,
+    register_id_token,
+)
+
 from ..models import (
     CreateSessionRequest,
     PermissionResponse,
@@ -282,6 +289,18 @@ async def invocations(http_request: Request, request: dict[str, Any]):
     # Bind this microVM to one authenticated user before any per-user work
     # (S3 sync, GitHub OAuth, routing) happens.
     enforce_runtime_session_owner(agentcore_session_id, user_id)
+
+    # Keep the caller's ID token for per-user S3 credentials
+    # (see core/user_credentials.py). It must belong to the same user.
+    if user_id:
+        id_token = http_request.headers.get(ID_TOKEN_HEADER)
+        if id_token:
+            try:
+                register_id_token(user_id, id_token)
+            except UserCredentialsError as e:
+                raise HTTPException(status_code=403, detail=str(e))
+        elif user_credentials_enabled():
+            print(f"⚠️  No ID token header from user {user_id}; S3 sync needs it for per-user credentials")
 
     # Get project_name from payload/query_params first (for workspace mode), fallback to header
     # This allows clients to explicitly specify project when workspace mode is enabled

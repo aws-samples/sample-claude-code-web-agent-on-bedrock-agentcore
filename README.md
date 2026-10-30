@@ -168,6 +168,54 @@ To run all steps at once:
 - Qwen 3 Coder 480B (code-focused)
 - LiteLLM proxy support for other providers
 
+## Security Model
+
+### The AgentCore JWT authorizer is required
+
+The container does **not** verify JWT signatures itself. It trusts the `sub`
+claim of the `Authorization` bearer token because the AgentCore Runtime
+`customJWTAuthorizer` (Cognito discovery URL + allowed client) has already
+validated the token's signature, issuer, expiry and client before the request
+reaches the container. `deploy/02_deploy_agentcore.sh` always configures this
+authorizer.
+
+**Never run the runtime without the JWT authorizer.** Without it, anyone who
+can call the runtime can forge a token with any `sub` and act as that user.
+The local development server (`uv run backend/server.py`) has no
+authentication at all and binds to `127.0.0.1`; do not expose it.
+
+### User identity comes only from the token
+
+- User-scoped routes (projects, backup, GitHub project creation, sessions) use
+  the token's `sub` as the user ID. A `user_id` in the request body or path is
+  accepted only if it matches the caller (403 otherwise).
+- AgentCore does not bind runtime session IDs to users. The backend binds each
+  microVM to the first authenticated user and rejects requests from anyone
+  else, and web-client session IDs (`{sub}@workspace[/{project}]`) must start
+  with the caller's own `sub`.
+
+### Per-user S3 isolation
+
+Code running inside a user's microVM (the agent, the shell and the terminal)
+can use the runtime role's credentials, so the runtime role has **no access**
+to the workspace bucket. Instead:
+
+1. The web client sends its Cognito ID token in the
+   `X-Amzn-Bedrock-AgentCore-Runtime-Custom-Id-Token` header (allow-listed on
+   the runtime).
+2. The backend checks that the ID token has the same `sub` as the validated
+   access token, then exchanges it with a Cognito Identity Pool
+   (`IDENTITY_POOL_ID`) for temporary credentials.
+3. The pool maps `sub` to the `sub` principal tag, and its authenticated role
+   only allows `s3://{bucket}/{S3_WORKSPACE_PREFIX}/${aws:PrincipalTag/sub}/*`.
+
+All `s5cmd` calls run with these per-user credentials, so a user can only
+reach their own prefix. When `IDENTITY_POOL_ID` is not set (local
+development), `s5cmd` uses the ambient AWS credentials.
+
+Background backups use the most recent ID token the user sent. If the user is
+idle long enough for it to expire, backups pause until their next request.
+
 ## Local Development
 
 For local development and testing without AWS deployment:
@@ -222,6 +270,8 @@ Key environment variables for the backend (set via `.agentcore_output` after dep
 - `COGNITO_CLIENT_ID`: Cognito App Client ID
 - `GITHUB_OAUTH_PROVIDER_NAME`: GitHub OAuth provider name
 - `S3_WORKSPACE_BUCKET`: S3 bucket for workspaces
+- `S3_WORKSPACE_PREFIX`: Key prefix for user data in the bucket (default: `user_data`)
+- `IDENTITY_POOL_ID`: Cognito Identity Pool that issues per-user S3 credentials (see [Security Model](#security-model))
 - `OAUTH_CALLBACK_URL`: OAuth callback URL (Amplify app URL)
 
 **Claude Agent SDK Tools Configuration:**

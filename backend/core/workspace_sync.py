@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional
 
 from .s3_client import S3Client, S3ClientError
+from .user_credentials import get_s3_env
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,7 @@ async def sync_workspace_from_s3(
         # Execute s5cmd
         process = await asyncio.create_subprocess_exec(
             *cmd,
+            env=await get_s3_env(user_id),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -202,6 +204,7 @@ async def sync_workspace_to_s3(
         # Execute s5cmd
         process = await asyncio.create_subprocess_exec(
             *cmd,
+            env=await get_s3_env(user_id),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -536,7 +539,7 @@ async def sync_claude_dir_from_s3(
         WorkspaceSyncError: If sync fails
     """
     try:
-        s3_client = S3Client(bucket_name, s3_prefix)
+        s3_client = S3Client(bucket_name, s3_prefix, user_id=user_id)
     except S3ClientError as e:
         raise WorkspaceSyncError(str(e)) from e
 
@@ -598,7 +601,7 @@ async def list_projects_from_s3(
         List of project names
     """
     try:
-        s3_client = S3Client(bucket_name, s3_prefix)
+        s3_client = S3Client(bucket_name, s3_prefix, user_id=user_id)
     except S3ClientError as e:
         logger.warning(f"Cannot list projects: {e}")
         return []
@@ -637,7 +640,7 @@ async def sync_project_from_s3(
         WorkspaceSyncError: If sync fails
     """
     try:
-        s3_client = S3Client(bucket_name, s3_prefix)
+        s3_client = S3Client(bucket_name, s3_prefix, user_id=user_id)
     except S3ClientError as e:
         raise WorkspaceSyncError(str(e)) from e
 
@@ -704,7 +707,7 @@ async def backup_project_to_s3(
         WorkspaceSyncError: If backup fails
     """
     try:
-        s3_client = S3Client(bucket_name, s3_prefix)
+        s3_client = S3Client(bucket_name, s3_prefix, user_id=user_id)
     except S3ClientError as e:
         raise WorkspaceSyncError(str(e)) from e
 
@@ -757,7 +760,7 @@ async def backup_claude_dir_to_s3(
         WorkspaceSyncError: If backup fails
     """
     try:
-        s3_client = S3Client(bucket_name, s3_prefix)
+        s3_client = S3Client(bucket_name, s3_prefix, user_id=user_id)
     except S3ClientError as e:
         raise WorkspaceSyncError(str(e)) from e
 
