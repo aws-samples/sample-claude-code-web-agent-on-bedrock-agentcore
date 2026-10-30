@@ -166,6 +166,31 @@ cp config.env.template config.env
 - Qwen 3 Coder 480B（专注代码）
 - LiteLLM 代理支持其他提供商
 
+## 安全模型
+
+### 必须开启 AgentCore JWT authorizer
+
+容器本身**不验证** JWT 签名。它直接使用 `Authorization` bearer token 里的 `sub`，前提是 AgentCore Runtime 的 `customJWTAuthorizer`（Cognito discovery URL 加上允许的 client）在请求进入容器之前，已经验证过 token 的签名、issuer、有效期和 client。`deploy/02_deploy_agentcore.sh` 总会配置这个 authorizer。
+
+**不要在没有 JWT authorizer 的情况下运行 runtime。** 没有它，任何能调用 runtime 的人都可以伪造任意 `sub` 的 token，冒充对应的用户。本地开发服务器（`uv run backend/server.py`）完全没有认证，只监听 `127.0.0.1`，不要对外暴露。
+
+### 用户身份只来自 token
+
+- 和用户相关的路由（项目、备份、从 GitHub 创建项目、会话）都用 token 里的 `sub` 作为用户 ID。请求 body 或路径里的 `user_id` 只有和调用者一致时才会被接受，否则返回 403。
+- AgentCore 不会把 runtime session ID 和用户绑定。后端会把每个 microVM 绑定到第一个通过认证的用户，拒绝其他用户的请求；Web 客户端的 session ID（`{sub}@workspace[/{project}]`）也必须以调用者自己的 `sub` 开头。
+
+### S3 按用户隔离
+
+用户 microVM 里运行的代码（agent、shell、终端）都能拿到 runtime role 的凭证，所以 runtime role **没有**工作区 bucket 的访问权限。S3 访问改为：
+
+1. Web 客户端把 Cognito ID token 放在 `X-Amzn-Bedrock-AgentCore-Runtime-Custom-Id-Token` header 里发送（已加入 runtime 的 header allowlist）。
+2. 后端检查 ID token 的 `sub` 和已验证的 access token 一致，然后向 Cognito Identity Pool（`IDENTITY_POOL_ID`）换取临时凭证。
+3. Identity Pool 把 `sub` 映射为 `sub` principal tag，它的 authenticated role 只允许访问 `s3://{bucket}/{S3_WORKSPACE_PREFIX}/${aws:PrincipalTag/sub}/*`。
+
+所有 `s5cmd` 调用都使用这份按用户签发的凭证，所以每个用户只能访问自己的前缀。没有设置 `IDENTITY_POOL_ID` 时（本地开发），`s5cmd` 使用环境里已有的 AWS 凭证。
+
+后台备份使用用户最近一次发来的 ID token。如果用户长时间不操作导致 token 过期，备份会暂停，等用户下一次请求后恢复。
+
 ## 本地开发
 
 无需 AWS 部署的本地开发和测试：
@@ -220,6 +245,8 @@ uv run pytest
 - `COGNITO_CLIENT_ID`：Cognito 应用客户端 ID
 - `GITHUB_OAUTH_PROVIDER_NAME`：GitHub OAuth 提供商名称
 - `S3_WORKSPACE_BUCKET`：工作区的 S3 bucket
+- `S3_WORKSPACE_PREFIX`：bucket 中用户数据的 key 前缀（默认：`user_data`）
+- `IDENTITY_POOL_ID`：签发按用户 S3 凭证的 Cognito Identity Pool（见[安全模型](#安全模型)）
 - `OAUTH_CALLBACK_URL`：OAuth 回调 URL（Amplify 应用 URL）
 
 **Claude Agent SDK Tools 配置：**

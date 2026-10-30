@@ -11,6 +11,13 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Request
 
+from ..core.user_credentials import (
+    ID_TOKEN_HEADER,
+    UserCredentialsError,
+    is_enabled as user_credentials_enabled,
+    register_id_token,
+)
+
 from ..models import (
     CreateSessionRequest,
     PermissionResponse,
@@ -72,6 +79,115 @@ from .git import (
 router = APIRouter()
 
 
+def require_caller_user_id(caller_user_id: Optional[str]) -> str:
+    """
+    Return the authenticated caller's user_id or reject the request.
+
+    The caller identity is the `sub` claim of the bearer token that the
+    AgentCore Runtime JWT authorizer has already validated and forwarded
+    (requestHeaderAllowlist=[Authorization]). It is the only source of
+    identity for user-scoped routes; client-supplied user_id values are
+    never trusted on their own.
+    """
+    if not caller_user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Authenticated user identity is required (no 'sub' claim in Authorization bearer token)",
+        )
+    return caller_user_id
+
+
+def bind_caller_user_id(
+    caller_user_id: str, supplied_user_id: Optional[Any]
+) -> str:
+    """
+    Bind a request to the authenticated caller.
+
+    A client may still send user_id for backward compatibility, but it must
+    match the caller. A mismatch is rejected instead of silently acting on
+    another user's data.
+    """
+    if supplied_user_id not in (None, "") and str(supplied_user_id) != caller_user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="user_id does not match the authenticated caller",
+        )
+    return caller_user_id
+
+
+# The authenticated user that owns this runtime microVM. AgentCore runs one
+# microVM per runtime session ID but does not bind session IDs to users, so the
+# container enforces it: the first authenticated caller owns the microVM (its
+# local workspace, ~/.claude, gh login and env vars) and every later request
+# must come from the same user.
+_runtime_owner_user_id: Optional[str] = None
+
+
+def enforce_runtime_session_owner(
+    agentcore_session_id: Optional[str], caller_user_id: Optional[str]
+) -> None:
+    """
+    Reject requests that try to use another user's runtime session.
+
+    - Session IDs in the web client format ("{sub}@workspace" or
+      "{sub}@workspace/{project}") must start with the caller's own sub.
+    - Whatever the format, the microVM is bound to the first authenticated
+      caller and rejects any other user.
+    """
+    global _runtime_owner_user_id
+
+    if not caller_user_id:
+        if _runtime_owner_user_id is not None:
+            raise HTTPException(
+                status_code=401,
+                detail="Authenticated user identity is required for this runtime session",
+            )
+        return
+
+    if agentcore_session_id and "@workspace" in agentcore_session_id:
+        own_prefix = f"{caller_user_id}@workspace"
+        if not (
+            agentcore_session_id == own_prefix
+            or agentcore_session_id.startswith(own_prefix + "/")
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Runtime session ID does not belong to the authenticated caller",
+            )
+
+    if _runtime_owner_user_id is None:
+        _runtime_owner_user_id = caller_user_id
+    elif _runtime_owner_user_id != caller_user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="This runtime session belongs to another user",
+        )
+
+
+def validate_project_name(project_name: Optional[Any]) -> Optional[str]:
+    """
+    Reject project names that could escape the caller's workspace.
+
+    project_name becomes both a local path segment (/workspace/{project_name})
+    and an S3 key segment ({prefix}/{user_id}/projects/{project_name}/), so it
+    must be a single path segment.
+    """
+    if project_name is None:
+        return None
+    name = str(project_name)
+    if (
+        not name
+        or name in (".", "..")
+        or name.startswith(".")
+        or "/" in name
+        or "\\" in name
+        or ".." in name
+        or any(ord(ch) < 32 for ch in name)
+    ):
+        raise HTTPException(status_code=400, detail=f"Invalid project_name: {name!r}")
+    return name
+
+
 def parse_session_and_user_from_headers(request: Request) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """
     Parse agentcore_session_id, user_id, and project_name from request headers.
@@ -109,8 +225,11 @@ def parse_session_and_user_from_headers(request: Request) -> tuple[Optional[str]
     if auth_header.lower().startswith("bearer "):
         token = auth_header[7:].strip()  # Remove "Bearer " prefix and whitespace
         try:
-            # Decode JWT without verification (for extracting sub claim)
-            # In production, you should verify the token signature
+            # The signature is not re-verified here: the AgentCore Runtime
+            # customJWTAuthorizer validates the token (issuer, signature,
+            # expiry, client) before the request reaches this container.
+            # Deploy with the authorizer enabled; without it, this claim is
+            # not trustworthy.
             decoded = jwt.decode(token, options={"verify_signature": False})
             user_id = decoded.get("sub")
         except jwt.DecodeError:
@@ -167,6 +286,22 @@ async def invocations(http_request: Request, request: dict[str, Any]):
     # Parse agentcore_session_id, user_id, and project_name from headers
     agentcore_session_id, user_id, project_name_from_header = parse_session_and_user_from_headers(http_request)
 
+    # Bind this microVM to one authenticated user before any per-user work
+    # (S3 sync, GitHub OAuth, routing) happens.
+    enforce_runtime_session_owner(agentcore_session_id, user_id)
+
+    # Keep the caller's ID token for per-user S3 credentials
+    # (see core/user_credentials.py). It must belong to the same user.
+    if user_id:
+        id_token = http_request.headers.get(ID_TOKEN_HEADER)
+        if id_token:
+            try:
+                register_id_token(user_id, id_token)
+            except UserCredentialsError as e:
+                raise HTTPException(status_code=403, detail=str(e))
+        elif user_credentials_enabled():
+            print(f"⚠️  No ID token header from user {user_id}; S3 sync needs it for per-user credentials")
+
     # Get project_name from payload/query_params first (for workspace mode), fallback to header
     # This allows clients to explicitly specify project when workspace mode is enabled
     project_name = None
@@ -176,6 +311,7 @@ async def invocations(http_request: Request, request: dict[str, Any]):
         project_name = request.get("query_params", {}).get("project_name")
     if not project_name:
         project_name = project_name_from_header
+    project_name = validate_project_name(project_name)
 
     # Ensure user's .claude directory is synced from S3 (first time only)
     # Only perform S3 sync if enabled
@@ -303,10 +439,15 @@ async def invocations(http_request: Request, request: dict[str, Any]):
     # Route to appropriate endpoint based on path and method
     try:
         if path == "/sessions" and method == "POST":
-            # Create session - inject user_id from header if not in payload
+            # Create session - user_id always comes from the authenticated caller
             session_payload = payload.copy() if payload else {}
-            if user_id and "user_id" not in session_payload:
-                session_payload["user_id"] = user_id
+            if user_id:
+                session_payload["user_id"] = bind_caller_user_id(
+                    user_id, session_payload.get("user_id")
+                )
+            else:
+                # No authenticated identity: never accept a client-chosen user_id
+                session_payload.pop("user_id", None)
             req = CreateSessionRequest(**session_payload)
             return await create_session(req)
 
@@ -657,26 +798,31 @@ async def invocations(http_request: Request, request: dict[str, Any]):
             return await close_terminal_session(session_id)
 
         elif path == "/workspace/projects/backup" and method == "POST":
-            # Backup project to S3
+            # Backup project to S3 (only into the caller's own prefix)
             from .workspace import backup_project, CreateProjectRequest
-            req = CreateProjectRequest(**payload)
+            caller = require_caller_user_id(user_id)
+            backup_payload = dict(payload or {})
+            backup_payload["user_id"] = bind_caller_user_id(caller, backup_payload.get("user_id"))
+            backup_payload["project_name"] = validate_project_name(backup_payload.get("project_name"))
+            req = CreateProjectRequest(**backup_payload)
             return await backup_project(req)
 
         elif path == "/workspace/projects" and method == "POST":
-            # Create project
+            # Create project (only under the caller's own prefix)
             from .workspace import create_project, CreateProjectRequest
-            req = CreateProjectRequest(**payload)
+            caller = require_caller_user_id(user_id)
+            create_payload = dict(payload or {})
+            create_payload["user_id"] = bind_caller_user_id(caller, create_payload.get("user_id"))
+            create_payload["project_name"] = validate_project_name(create_payload.get("project_name"))
+            req = CreateProjectRequest(**create_payload)
             return await create_project(req)
 
         elif path.startswith("/workspace/projects/") and method == "GET":
-            # List projects for user
+            # List the caller's own projects; path user_id is optional and must match
             from .workspace import list_projects
-            user_id = path_params.get("user_id")
-            if not user_id:
-                raise HTTPException(
-                    status_code=400, detail="Missing user_id in path_params"
-                )
-            return await list_projects(user_id)
+            caller = require_caller_user_id(user_id)
+            list_user_id = bind_caller_user_id(caller, path_params.get("user_id"))
+            return await list_projects(list_user_id)
 
         elif path == "/oauth/github/token" and method == "POST":
             # Get GitHub OAuth token
@@ -715,21 +861,22 @@ async def invocations(http_request: Request, request: dict[str, Any]):
             from .oauth import create_project_from_github
             # Extract params - try both path_params and query_params for compatibility
             params = request.get("path_params", {}) or request.get("query_params", {})
-            user_id = params.get("user_id")
+            caller = require_caller_user_id(user_id)
+            github_user_id = bind_caller_user_id(caller, params.get("user_id"))
             repository_url = params.get("repository_url")
-            project_name = params.get("project_name")
+            github_project_name = validate_project_name(params.get("project_name"))
             branch = params.get("branch")
 
-            if not user_id or not repository_url:
+            if not repository_url:
                 raise HTTPException(
                     status_code=400,
-                    detail="Missing required parameters: user_id and repository_url"
+                    detail="Missing required parameter: repository_url"
                 )
 
             return await create_project_from_github(
-                user_id=user_id,
+                user_id=github_user_id,
                 repository_url=repository_url,
-                project_name=project_name,
+                project_name=github_project_name,
                 branch=branch
             )
 

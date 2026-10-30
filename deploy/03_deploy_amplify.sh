@@ -447,6 +447,8 @@ if [ -n "$AGENT_RUNTIME_ARN" ]; then
     [ -n "${DISABLE_PROMPT_CACHING}" ] && ENV_VARS="${ENV_VARS},DISABLE_PROMPT_CACHING=${DISABLE_PROMPT_CACHING}"
     [ -n "${CLAUDE_CODE_USE_BEDROCK}" ] && ENV_VARS="${ENV_VARS},CLAUDE_CODE_USE_BEDROCK=${CLAUDE_CODE_USE_BEDROCK}"
     [ -n "${S3_WORKSPACE_BUCKET}" ] && ENV_VARS="${ENV_VARS},S3_WORKSPACE_BUCKET=${S3_WORKSPACE_BUCKET}"
+    [ -n "${S3_WORKSPACE_PREFIX}" ] && ENV_VARS="${ENV_VARS},S3_WORKSPACE_PREFIX=${S3_WORKSPACE_PREFIX}"
+    [ -n "${IDENTITY_POOL_ID}" ] && ENV_VARS="${ENV_VARS},IDENTITY_POOL_ID=${IDENTITY_POOL_ID}"
     ENV_VARS="${ENV_VARS},OAUTH_CALLBACK_URL=${NEW_OAUTH_CALLBACK_URL}"
 
     # Update runtime with all required parameters (matching 02_deploy_agentcore.sh)
@@ -463,7 +465,7 @@ if [ -n "$AGENT_RUNTIME_ARN" ]; then
             --agent-runtime-artifact "containerConfiguration={containerUri=${DOCKER_IMAGE_URI}}" \
             --network-configuration "networkMode=PUBLIC" \
             --role-arn "${ROLE_ARN}" \
-            --request-header-configuration "requestHeaderAllowlist=[Authorization]" \
+            --request-header-configuration "requestHeaderAllowlist=[Authorization,X-Amzn-Bedrock-AgentCore-Runtime-Custom-Id-Token]" \
             --environment-variables "${ENV_VARS}" \
             --authorizer-configuration "${AUTHORIZER_CONFIG}" \
             2>&1)
@@ -474,7 +476,7 @@ if [ -n "$AGENT_RUNTIME_ARN" ]; then
             --agent-runtime-artifact "containerConfiguration={containerUri=${DOCKER_IMAGE_URI}}" \
             --network-configuration "networkMode=PUBLIC" \
             --role-arn "${ROLE_ARN}" \
-            --request-header-configuration "requestHeaderAllowlist=[Authorization]" \
+            --request-header-configuration "requestHeaderAllowlist=[Authorization,X-Amzn-Bedrock-AgentCore-Runtime-Custom-Id-Token]" \
             --environment-variables "${ENV_VARS}" \
             2>&1)
     fi

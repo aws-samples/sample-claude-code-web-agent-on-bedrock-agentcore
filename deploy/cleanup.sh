@@ -140,6 +140,26 @@ echo ""
 echo -e "${YELLOW}[4/6] Deleting IAM role...${NC}"
 FULL_ROLE_NAME="${IAM_ROLE_NAME}-${AWS_REGION}-${DEPLOYMENT_ENV:-prod}"
 
+# Per-user S3 access: Identity Pool and its authenticated role
+IDENTITY_POOL_NAME="${COGNITO_IDENTITY_POOL_NAME:-ClaudeAgentIdentityPool_${DEPLOYMENT_ENV:-prod}}"
+if [ -z "$IDENTITY_POOL_ID" ]; then
+    IDENTITY_POOL_ID=$(aws cognito-identity list-identity-pools --max-results 60 --region "$AWS_REGION" \
+        --query "IdentityPools[?IdentityPoolName=='${IDENTITY_POOL_NAME}'].IdentityPoolId | [0]" \
+        --output text 2>/dev/null || echo "")
+fi
+if [ -n "$IDENTITY_POOL_ID" ] && [ "$IDENTITY_POOL_ID" != "None" ]; then
+    echo "  Deleting Identity Pool: $IDENTITY_POOL_ID"
+    aws cognito-identity delete-identity-pool --identity-pool-id "$IDENTITY_POOL_ID" --region "$AWS_REGION" 2>/dev/null \
+        || echo "  Could not delete Identity Pool"
+fi
+
+S3_USER_ROLE_NAME="${S3_USER_ROLE_NAME:-${IAM_ROLE_NAME}-S3User-${AWS_REGION}-${DEPLOYMENT_ENV:-prod}}"
+if aws iam get-role --role-name "$S3_USER_ROLE_NAME" &>/dev/null; then
+    echo "  Deleting per-user S3 role: $S3_USER_ROLE_NAME"
+    aws iam delete-role-policy --role-name "$S3_USER_ROLE_NAME" --policy-name "PerUserWorkspaceS3Access" 2>/dev/null || true
+    aws iam delete-role --role-name "$S3_USER_ROLE_NAME" 2>/dev/null || echo "  Could not delete per-user S3 role"
+fi
+
 if aws iam get-role --role-name "$FULL_ROLE_NAME" &>/dev/null; then
     echo "Deleting IAM role policies: $FULL_ROLE_NAME"
 
