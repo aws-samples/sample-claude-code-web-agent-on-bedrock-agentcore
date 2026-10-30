@@ -108,6 +108,55 @@ def bind_caller_user_id(
     return caller_user_id
 
 
+# The authenticated user that owns this runtime microVM. AgentCore runs one
+# microVM per runtime session ID but does not bind session IDs to users, so the
+# container enforces it: the first authenticated caller owns the microVM (its
+# local workspace, ~/.claude, gh login and env vars) and every later request
+# must come from the same user.
+_runtime_owner_user_id: Optional[str] = None
+
+
+def enforce_runtime_session_owner(
+    agentcore_session_id: Optional[str], caller_user_id: Optional[str]
+) -> None:
+    """
+    Reject requests that try to use another user's runtime session.
+
+    - Session IDs in the web client format ("{sub}@workspace" or
+      "{sub}@workspace/{project}") must start with the caller's own sub.
+    - Whatever the format, the microVM is bound to the first authenticated
+      caller and rejects any other user.
+    """
+    global _runtime_owner_user_id
+
+    if not caller_user_id:
+        if _runtime_owner_user_id is not None:
+            raise HTTPException(
+                status_code=401,
+                detail="Authenticated user identity is required for this runtime session",
+            )
+        return
+
+    if agentcore_session_id and "@workspace" in agentcore_session_id:
+        own_prefix = f"{caller_user_id}@workspace"
+        if not (
+            agentcore_session_id == own_prefix
+            or agentcore_session_id.startswith(own_prefix + "/")
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Runtime session ID does not belong to the authenticated caller",
+            )
+
+    if _runtime_owner_user_id is None:
+        _runtime_owner_user_id = caller_user_id
+    elif _runtime_owner_user_id != caller_user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="This runtime session belongs to another user",
+        )
+
+
 def validate_project_name(project_name: Optional[Any]) -> Optional[str]:
     """
     Reject project names that could escape the caller's workspace.
@@ -229,6 +278,10 @@ async def invocations(http_request: Request, request: dict[str, Any]):
     """
     # Parse agentcore_session_id, user_id, and project_name from headers
     agentcore_session_id, user_id, project_name_from_header = parse_session_and_user_from_headers(http_request)
+
+    # Bind this microVM to one authenticated user before any per-user work
+    # (S3 sync, GitHub OAuth, routing) happens.
+    enforce_runtime_session_owner(agentcore_session_id, user_id)
 
     # Get project_name from payload/query_params first (for workspace mode), fallback to header
     # This allows clients to explicitly specify project when workspace mode is enabled
