@@ -8,13 +8,16 @@ https://github.com/user-attachments/assets/5132e8fa-d2d4-44c6-acee-2d63213b9d39
 
 📖 **[User Guide](docs/USER_GUIDE.md)** | [用户手册](docs/USER_GUIDE.zh-CN.md)
 
-A production-ready web agent powered by Claude Code SDK, deployed on AWS Bedrock AgentCore Runtime with React frontend on AWS Amplify.
+A sample web agent powered by Claude Code SDK, deployed on AWS Bedrock AgentCore Runtime with React frontend on AWS Amplify.
+
+> [!IMPORTANT]
+> This is a sample demo for internal team use. It is **not** a production project and is not intended for public deployment. Before you deploy it, review and adapt it to your own team's security requirements (see [Security Model](#security-model) and [Known limitations](#known-limitations)). This repository is archived and no longer maintained.
 
 ![Claude Code Web Agent](docs/assets/main_page.webp)
 
 ## Architecture Overview
 
-This solution provides a serverless, scalable Claude Code agent with enterprise-grade features:
+This solution provides a serverless, scalable Claude Code agent with these features:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -141,7 +144,7 @@ To run all steps at once:
 
 ## Key Features
 
-### Enterprise Authentication
+### Authentication
 - **AWS Cognito**: Secure user registration and login
 - **JWT tokens**: Stateless authentication with bearer tokens
 - **Email verification**: Optional email domain restrictions
@@ -215,6 +218,13 @@ development), `s5cmd` uses the ambient AWS credentials.
 
 Background backups use the most recent ID token the user sent. If the user is
 idle long enough for it to expire, backups pause until their next request.
+
+### Known limitations
+
+Each user gets a developer sandbox: the agent, `/shell/execute` and the terminal run any command (installing packages included) inside that user's own microVM, with no command allowlist. Code in the sandbox can also use the runtime role's credentials. That role still has permissions you should narrow before using this sample with users you don't fully trust:
+
+- `secretsmanager:GetSecretValue`, `PutSecretValue` and `DeleteSecret` on `secret:bedrock-agentcore*`, where AgentCore Identity keeps the GitHub OAuth app's client secret.
+- `bedrock:InvokeModel` on all foundation models, while the Cognito user pool allows self sign-up (`AllowAdminCreateUserOnly=false`). Anyone who signs up can use the deploying account's Bedrock models.
 
 ## Local Development
 

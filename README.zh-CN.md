@@ -6,13 +6,16 @@ https://github.com/user-attachments/assets/5132e8fa-d2d4-44c6-acee-2d63213b9d39
 
 📖 [User Guide](docs/USER_GUIDE.md) | **[用户手册](docs/USER_GUIDE.zh-CN.md)**
 
-基于 Claude Code SDK 的生产就绪 Web Agent，部署在 AWS Bedrock AgentCore Runtime 上，使用 React 前端托管在 AWS Amplify。
+基于 Claude Code SDK 的示例 Web Agent，部署在 AWS Bedrock AgentCore Runtime 上，使用 React 前端托管在 AWS Amplify。
+
+> [!IMPORTANT]
+> 这是供团队内部使用的示例 demo，**不是**生产项目，也不适合公开部署。部署前请按你所在团队的安全要求审查并适配（见[安全模型](#安全模型)和[已知限制](#已知限制)）。本仓库已归档，不再维护。
 
 ![Claude Code Web Agent](docs/assets/main_page.webp)
 
 ## 架构概览
 
-该解决方案提供了一个无服务器、可扩展的 Claude Code Agent，具备企业级特性：
+该解决方案提供了一个无服务器、可扩展的 Claude Code Agent，具备以下特性：
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -139,7 +142,7 @@ cp config.env.template config.env
 
 ## 主要特性
 
-### 企业级身份验证
+### 身份验证
 - **AWS Cognito**：安全的用户注册和登录
 - **JWT tokens**：使用 bearer token 的无状态身份验证
 - **邮箱验证**：可选的邮箱域名限制
@@ -190,6 +193,13 @@ cp config.env.template config.env
 所有 `s5cmd` 调用都使用这份按用户签发的凭证，所以每个用户只能访问自己的前缀。没有设置 `IDENTITY_POOL_ID` 时（本地开发），`s5cmd` 使用环境里已有的 AWS 凭证。
 
 后台备份使用用户最近一次发来的 ID token。如果用户长时间不操作导致 token 过期，备份会暂停，等用户下一次请求后恢复。
+
+### 已知限制
+
+每个用户得到的是一个开发者沙盒：agent、`/shell/execute` 和终端都能在该用户自己的 microVM 里执行任意命令（包括安装软件包），没有命令白名单。沙盒里的代码也能使用 runtime role 的凭证。在给不完全信任的用户使用之前，应先收窄这个 role 的以下权限：
+
+- `secret:bedrock-agentcore*` 上的 `secretsmanager:GetSecretValue`、`PutSecretValue`、`DeleteSecret`。AgentCore Identity 把 GitHub OAuth App 的 client secret 存在这里。
+- 所有基础模型上的 `bedrock:InvokeModel`，而 Cognito user pool 允许自助注册（`AllowAdminCreateUserOnly=false`）。任何人注册后都能使用部署账号的 Bedrock 模型。
 
 ## 本地开发
 
